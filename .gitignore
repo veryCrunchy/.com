@@ -23,3 +23,6 @@ logs
 .env.*
 !.env.example
 /.history
+
+package-lock.json
+bun.lock
