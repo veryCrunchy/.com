@@ -12,6 +12,7 @@ import type {
   CmsSiteSettings,
   DirectusAsset,
   DirectusPhoto,
+  DirectusPhotosetPhoto,
   DirectusPhotoset,
   DirectusPost,
   DirectusSchema,
@@ -65,7 +66,7 @@ const PHOTO_FIELDS = [
   },
 ];
 
-const PHOTOSET_FIELDS = [
+const PHOTOSET_BASE_FIELDS = [
   "id",
   "status",
   "slug",
@@ -76,25 +77,26 @@ const PHOTOSET_FIELDS = [
   {
     cover_image: ["id", "title", "description", "width", "height", "filename_download"],
   },
+];
+
+const PHOTOSET_PHOTO_FIELDS = [
+  "id",
+  "photosets_id",
+  "sort",
   {
-    photos: [
-      "sort",
+    photos_id: [
+      "id",
+      "slug",
+      "title",
+      "description",
+      "published_at",
+      "taken_at",
+      "location",
+      "camera",
+      "lens",
+      "tags",
       {
-        photos_id: [
-          "id",
-          "slug",
-          "title",
-          "description",
-          "published_at",
-          "taken_at",
-          "location",
-          "camera",
-          "lens",
-          "tags",
-          {
-            image: ["id", "title", "description", "width", "height", "filename_download"],
-          },
-        ],
+        image: ["id", "title", "description", "width", "height", "filename_download"],
       },
     ],
   },
@@ -436,6 +438,42 @@ export function normalizePhotoset(
   };
 }
 
+async function attachPhotosToPhotosets(
+  client: NonNullable<ReturnType<typeof getDirectusClient>>,
+  photosets: DirectusPhotoset[]
+) {
+  if (!photosets.length) {
+    return photosets;
+  }
+
+  const photosetIds = photosets.map((photoset) => photoset.id);
+  const links = await client.request(
+    readItems("photosets_photos", {
+      fields: PHOTOSET_PHOTO_FIELDS,
+      filter: {
+        photosets_id: {
+          _in: photosetIds,
+        },
+      },
+      sort: ["sort", "id"],
+      limit: -1,
+    })
+  );
+
+  const groupedLinks = new Map<number, DirectusPhotosetPhoto[]>();
+
+  for (const link of links as DirectusPhotosetPhoto[]) {
+    const group = groupedLinks.get(link.photosets_id) ?? [];
+    group.push(link);
+    groupedLinks.set(link.photosets_id, group);
+  }
+
+  return photosets.map((photoset) => ({
+    ...photoset,
+    photos: groupedLinks.get(photoset.id) ?? [],
+  }));
+}
+
 export async function readDirectusPhotosets(
   event: H3Event | undefined,
   options?: { limit?: number }
@@ -446,13 +484,19 @@ export async function readDirectusPhotosets(
   try {
     const photosets = await client.request(
       readItems("photosets", {
-        fields: PHOTOSET_FIELDS,
+        fields: PHOTOSET_BASE_FIELDS,
         filter: { status: { _eq: "published" } },
-        sort: ["-published_at", "-date_created"],
+        sort: ["-published_at"],
         limit: options?.limit ?? -1,
       })
     );
-    return photosets.map((ps) => normalizePhotosetSummary(event, ps as DirectusPhotoset));
+
+    const photosetsWithPhotos = await attachPhotosToPhotosets(
+      client,
+      photosets as DirectusPhotoset[]
+    );
+
+    return photosetsWithPhotos.map((ps) => normalizePhotosetSummary(event, ps));
   } catch {
     return [];
   }
@@ -468,7 +512,7 @@ export async function readDirectusPhotosetBySlug(
   try {
     const [photoset] = await client.request(
       readItems("photosets", {
-        fields: PHOTOSET_FIELDS,
+        fields: PHOTOSET_BASE_FIELDS,
         filter: {
           status: { _eq: "published" },
           slug: { _eq: slug },
@@ -476,7 +520,14 @@ export async function readDirectusPhotosetBySlug(
         limit: 1,
       })
     );
-    return photoset ? normalizePhotoset(event, photoset as DirectusPhotoset) : null;
+
+    if (!photoset) {
+      return null;
+    }
+
+    const [photosetWithPhotos] = await attachPhotosToPhotosets(client, [photoset as DirectusPhotoset]);
+
+    return photosetWithPhotos ? normalizePhotoset(event, photosetWithPhotos) : null;
   } catch {
     return null;
   }
