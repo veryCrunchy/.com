@@ -35,16 +35,9 @@
           <NuxtLink
             to="/photos"
             class="nav-link"
-            :class="{ 'is-active': isActive('/photos') }"
+            :class="{ 'is-active': isActive('/photos') || isActive('/photosets') }"
           >
             <span data-directus-field="photos_label">{{ site.photosLabel }}</span>
-          </NuxtLink>
-          <NuxtLink
-            to="/photosets"
-            class="nav-link"
-            :class="{ 'is-active': isActive('/photosets') }"
-          >
-            Sets
           </NuxtLink>
           <a
             :href="site.githubUrl"
@@ -133,6 +126,16 @@
     display: flex;
     align-items: center;
     gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .site-nav-links::-webkit-scrollbar {
+    display: none;
   }
 
   .nav-link {
@@ -143,6 +146,8 @@
     border-radius: 5px;
     text-decoration: none;
     transition: color 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .nav-link:hover {
@@ -162,6 +167,8 @@
     padding: 0.28rem 0.7rem;
     text-decoration: none;
     margin-left: 0.5rem;
+    flex-shrink: 0;
+    white-space: nowrap;
     transition: color 0.15s, border-color 0.15s;
   }
 

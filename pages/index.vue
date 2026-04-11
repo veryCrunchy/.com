@@ -1,6 +1,65 @@
 <script setup lang="ts">
-  import { onBeforeUnmount, onMounted, ref } from "vue";
+  import { onBeforeUnmount, onMounted, ref, computed } from "vue";
   import { gsap } from "gsap";
+  import type { CmsHomePayload, CmsProject } from "~/types/directus";
+  import { DEFAULT_CMS_SITE_SETTINGS } from "~/types/directus";
+
+  const { data: cmsHome } = await useAsyncData<CmsHomePayload>(
+    "cms-home",
+    () => $fetch("/api/cms/home"),
+    {
+      default: () => ({
+        site: DEFAULT_CMS_SITE_SETTINGS,
+        recentPosts: [],
+        recentPhotos: [],
+        projects: [],
+      }),
+    }
+  );
+
+  const cmsSite = computed(() => cmsHome.value?.site ?? DEFAULT_CMS_SITE_SETTINGS);
+  const cmsProjects = computed(() => cmsHome.value?.projects ?? []);
+  const projectMap = computed(() => new Map(cmsProjects.value.map((proj) => [proj.id, proj])));
+
+  function getProj(id: number): CmsProject | null {
+    return projectMap.value.get(id) ?? null;
+  }
+
+  function chapterExtras(chapter: string, knownIds: number[]): CmsProject[] {
+    return cmsProjects.value.filter(
+      (proj) => proj.chapter === chapter && !knownIds.includes(proj.id)
+    );
+  }
+
+  function cmsCardProps(id: number) {
+    const proj = getProj(id);
+    if (!proj) return {};
+    return {
+      wide: proj.wide,
+      eyebrow: proj.eyebrow ?? undefined,
+      title: proj.title,
+      description: proj.description ?? undefined,
+      tags: proj.tags?.length ? proj.tags : undefined,
+      link: proj.linkHref
+        ? {
+            href: proj.linkHref,
+            label: proj.linkLabel || "Open →",
+            ...(proj.linkTarget ? { target: proj.linkTarget } : {}),
+            ...(proj.linkVariant ? { variant: proj.linkVariant as "default" | "green" } : {}),
+          }
+        : undefined,
+      accentColor: (proj.accentColor ?? undefined) as "blue" | "orange" | "purple" | "green" | "pink" | "none" | undefined,
+      footer:
+        proj.footerLabel || proj.footerLive
+          ? { label: proj.footerLabel || "", live: proj.footerLive }
+          : undefined,
+      status: proj.statusLabel ?? undefined,
+    };
+  }
+
+  function projCardProps(id: number) {
+    return cmsCardProps(id);
+  }
 
   const moved = ref(false);
   const cursor = ref<HTMLDivElement | null>(null);
@@ -524,25 +583,26 @@
       class="hover mb-20 flex flex-col gap-10 md:flex-row md:items-start md:gap-14"
       hs-dist="120"
     >
-      <div class="load-focus flex-1" hs-size="400px" hs-br="25%">
-        <div class="flex items-center gap-2">
+      <div
+        class="load-focus flex-1"
+        hs-size="400px"
+        hs-br="25%"
+        data-directus-collection="site_settings"
+        data-directus-item="1"
+      >
+        <div v-if="cmsSite.availabilityActive" class="flex items-center gap-2">
           <span class="live-dot"></span>
-          <p class="eyebrow">Available for freelance work</p>
+          <p class="eyebrow" data-directus-field="availability_label">{{ cmsSite.availabilityLabel }}</p>
         </div>
         <h1 class="hero-title mt-4">
           <span class="hero-greeting">Hey, I'm</span>
           <span class="hero-name">veryCrunchy</span>
         </h1>
-        <p class="italicline mt-5 max-w-lg">
-          Fullstack developer — web apps, developer tools, and interactive&nbsp;experiences.
-        </p>
-        <p class="mt-3 max-w-lg text-[0.9rem] leading-relaxed text-zinc-400">
-          I care about clean code, fast interfaces, and products that feel good to use.
-          Self-taught, ship-first, always building something.
-        </p>
+        <p class="italicline mt-5 max-w-lg" data-directus-field="hero_tagline">{{ cmsSite.heroTagline }}</p>
+        <p class="mt-3 max-w-lg text-[0.9rem] leading-relaxed text-zinc-400" data-directus-field="hero_description">{{ cmsSite.heroDescription }}</p>
         <div class="mt-8 flex flex-wrap gap-3">
-          <a href="https://github.com/verycrunchy" target="_blank" rel="noopener" class="hero-btn hero-btn--primary">View my GitHub&nbsp;→</a>
-          <a href="https://ko-fi.com/verycrunchy" target="_blank" rel="noopener" class="hero-btn hero-btn--ghost">Support me</a>
+          <a :href="cmsSite.primaryCtaUrl" target="_blank" rel="noopener" class="hero-btn hero-btn--primary">{{ cmsSite.primaryCtaLabel }}</a>
+          <a :href="cmsSite.secondaryCtaUrl" target="_blank" rel="noopener" class="hero-btn hero-btn--ghost">{{ cmsSite.secondaryCtaLabel }}</a>
         </div>
       </div>
 
@@ -592,6 +652,9 @@
         :link="{ href: '/stats.fm/verycrunchy', label: 'Open →' }"
         accent-color="purple"
         theme="dark"
+        v-bind="projCardProps(1)"
+        data-directus-collection="projects"
+        data-directus-item="1"
       />
 
       <ArticleCard
@@ -607,6 +670,9 @@
         accent-color="blue"
         theme="dark"
         :footer="{ label: 'Always live', live: true }"
+        v-bind="projCardProps(2)"
+        data-directus-collection="projects"
+        data-directus-item="2"
       />
 
       <div class="ch-sub-rule">
@@ -626,6 +692,9 @@
         ]"
         :link="{ href: 'https://github.com/verycrunchy/.com', label: 'Source →', target: '_blank' }"
         theme="dark"
+        v-bind="projCardProps(3)"
+        data-directus-collection="projects"
+        data-directus-item="3"
       />
 
       <p class="para-card">Every cursor movement passes through a custom spring physics engine. Snap points, morphing border-radii, velocity dampening — built from scratch with GSAP ticker loops and raw pointer event math. No third-party cursor library was harmed in the making of this site.</p>
@@ -638,18 +707,30 @@
 
       <ArticleCard
         :wide="true"
-        eyebrow="Coming · Q3 2026"
+        eyebrow="Live · Photos"
         title="Photo Portfolio"
         description="A first-person photo journal. Real places, real moments. Editorial grid layouts and behind-the-shot process notes. No stock imagery, no filters that don't belong."
         :tags="[
           { label: 'Photography' },
           { label: 'Editorial design' },
-          { label: 'Nuxt Image' },
+          { label: 'Fujifilm X-T5' },
         ]"
-        status="In progress"
-        theme="darker"
+        :link="{ href: '/photos', label: 'Browse →' }"
         accent-color="pink"
+        theme="darker"
+        v-bind="projCardProps(4)"
+        data-directus-collection="projects"
+        data-directus-item="4"
       />
+
+      <template v-for="ep in chapterExtras('work', [1,2,3,4])" :key="ep.id">
+        <ArticleCard
+          v-bind="cmsCardProps(ep.id)"
+          theme="dark"
+          :data-directus-collection="'projects'"
+          :data-directus-item="ep.id"
+        />
+      </template>
 
     </PageArticle>
 
@@ -734,13 +815,12 @@
     <!-- ── Ch. 03: Visual Journal ── -->
     <PageArticle
       chapter-num="03"
-      chapter-label="In Progress"
       watermark="VISUALS"
       title="Visual Journal"
       tagline="Real places. Real moments. No filters that don't belong."
-      description="A first-person photo journal documenting places, light, and seconds worth keeping. Editorial grid layouts, behind-the-shot process notes, and zero stock imagery. Launching Q3 2026."
+      description="A first-person photo journal — real places, real light, real seconds worth keeping. Fujifilm X-T5 + XF 16-80mm. No stock imagery, no borrowed vision."
       theme="pink"
-      :marquee-items="['First-Person Photography', 'Editorial Grid', 'Behind the Shot', 'No Stock Imagery', 'Real Moments', 'Q3 2026', 'Film + Digital']"
+      :marquee-items="['First-Person Photography', 'Editorial Grid', 'Behind the Shot', 'No Stock Imagery', 'Real Moments', 'Fujifilm X-T5', 'Film + Digital']"
     >
       <div class="ch-sub-rule">
         <span class="ch-sub-num">3.1</span>
@@ -750,18 +830,18 @@
 
       <ArticleCard
         :wide="true"
-        eyebrow="Coming · Q3 2026"
+        eyebrow="Live · Photos"
         title="Photo Journal"
-        description="Curated editorial photo grids. Shoots documented front-to-back — location context, lighting notes, and what the shot was going for. Every image tells its own story and something larger."
+        description="Curated editorial photo grids. Shoots documented front-to-back — location context and what the shot was going for. Every image tells its own story."
         :tags="[
           { label: 'Photography' },
           { label: 'Editorial Design' },
-          { label: 'Nuxt Image' },
-          { label: 'Film + Digital' },
+          { label: 'Fujifilm X-T5' },
+          { label: 'Focal-point crops' },
         ]"
-        status="In development"
-        theme="darker"
+        :link="{ href: '/photos', label: 'Browse →' }"
         accent-color="pink"
+        theme="darker"
       />
       <div class="ch-sub-rule">
         <span class="ch-sub-num">3.2</span>
@@ -771,11 +851,11 @@
       <ArticleCard
         eyebrow="Process · Gear"
         title="Kit & Workflow"
-        description="Canon EOS R + vintage glass. Lightroom for tones, Capture One for raw control. The gear matters less than what you choose to point it at."
+        description="Fujifilm X-T5 + XF 16-80mm f/4 R OIS WR. Lightroom for tones. The gear matters less than what you choose to point it at."
         :tags="[
-          { label: 'Canon EOS R' },
+          { label: 'Fujifilm X-T5' },
+          { label: 'XF 16-80mm f/4' },
           { label: 'Lightroom' },
-          { label: 'Capture One' },
         ]"
         theme="darker"
       />
@@ -1440,6 +1520,11 @@
   .hover:hover {
     transform: translateY(-2px);
     filter: drop-shadow(0 12px 30px rgba(14, 20, 29, 0.5));
+  }
+
+  /* Hide cursor elements on touch / pointer-coarse devices */
+  @media (pointer: coarse) {
+    #cursor, #cursorSmall { display: none !important; }
   }
 
   @media (max-width: 768px) {

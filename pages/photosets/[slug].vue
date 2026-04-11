@@ -34,7 +34,7 @@
       data-directus-collection="photosets"
       :data-directus-item="photoset.id"
     >
-      <NuxtLink to="/photosets" class="set-back">← Sets</NuxtLink>
+      <NuxtLink to="/photos" class="set-back">← Photos</NuxtLink>
 
       <header class="set-head">
         <div>
@@ -59,7 +59,7 @@
         <NuxtLink
           v-for="photo in photoset.photos"
           :key="photo.id"
-          :to="`/photos/${photo.slug}`"
+          :to="`/photos/${photo.slug}?from=${photoset.slug}`"
           class="set-photo"
         >
           <div class="set-photo-frame">
@@ -250,6 +250,21 @@
     .set-head {
       grid-template-columns: minmax(0, 1.3fr) minmax(14rem, 0.6fr);
       align-items: end;
+    }
+  }
+
+  @media (max-width: 540px) {
+    .set-page {
+      padding: 5.5rem 1rem 3rem;
+    }
+
+    .set-grid {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .set-photo {
+      border-radius: 0.85rem;
     }
   }
 </style>

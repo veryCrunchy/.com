@@ -64,12 +64,8 @@
     </section>
 
     <section v-else class="cms-empty">
-      <p class="eyebrow">Waiting On Content</p>
-      <h2>No posts yet</h2>
-      <p>
-        Create items in the Directus <code>posts</code> collection and they will appear here
-        automatically.
-      </p>
+      <h2>Nothing here yet</h2>
+      <p>Check back soon.</p>
     </section>
   </main>
 </template>
@@ -199,6 +195,21 @@
   @media (min-width: 900px) {
     .cms-page {
       padding-inline: 2rem;
+    }
+  }
+
+  @media (max-width: 540px) {
+    .cms-page {
+      padding: 5.5rem 1rem 3rem;
+    }
+
+    .post-grid {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .post-card {
+      border-radius: 0.85rem;
     }
   }
 </style>

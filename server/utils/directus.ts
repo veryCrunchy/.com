@@ -10,11 +10,14 @@ import type {
   CmsPost,
   CmsPostSummary,
   CmsSiteSettings,
+  CmsProject,
+  CmsSetRef,
   DirectusAsset,
   DirectusPhoto,
   DirectusPhotosetPhoto,
   DirectusPhotoset,
   DirectusPost,
+  DirectusProject,
   DirectusSchema,
   DirectusSiteSettings,
 } from "~/types/directus";
@@ -31,6 +34,15 @@ const SITE_SETTINGS_FIELDS = [
   "nav_cta_url",
   "posts_label",
   "photos_label",
+  "hero_tagline",
+  "hero_description",
+  "availability_label",
+  "availability_active",
+  "primary_cta_label",
+  "primary_cta_url",
+  "secondary_cta_label",
+  "secondary_cta_url",
+  "bio",
 ];
 
 const POST_FIELDS = [
@@ -100,6 +112,30 @@ const PHOTOSET_PHOTO_FIELDS = [
       },
     ],
   },
+] as const;
+
+const PHOTO_SET_LINK_FIELDS = [
+  { photosets_id: ["id", "slug", "title", "status"] },
+] as const;
+
+const PROJECT_FIELDS = [
+  "id",
+  "status",
+  "sort",
+  "chapter",
+  "eyebrow",
+  "title",
+  "description",
+  "tags",
+  "link_href",
+  "link_label",
+  "link_target",
+  "link_variant",
+  "accent_color",
+  "wide",
+  "footer_label",
+  "footer_live",
+  "status_label",
 ] as const;
 
 export function getDirectusClient(event?: H3Event) {
@@ -193,6 +229,35 @@ export function normalizeSiteSettings(
     navCtaUrl: settings?.nav_cta_url || DEFAULT_CMS_SITE_SETTINGS.navCtaUrl,
     postsLabel: settings?.posts_label || DEFAULT_CMS_SITE_SETTINGS.postsLabel,
     photosLabel: settings?.photos_label || DEFAULT_CMS_SITE_SETTINGS.photosLabel,
+    heroTagline: settings?.hero_tagline || DEFAULT_CMS_SITE_SETTINGS.heroTagline,
+    heroDescription: settings?.hero_description || DEFAULT_CMS_SITE_SETTINGS.heroDescription,
+    availabilityLabel: settings?.availability_label || DEFAULT_CMS_SITE_SETTINGS.availabilityLabel,
+    availabilityActive: settings?.availability_active ?? DEFAULT_CMS_SITE_SETTINGS.availabilityActive,
+    primaryCtaLabel: settings?.primary_cta_label || DEFAULT_CMS_SITE_SETTINGS.primaryCtaLabel,
+    primaryCtaUrl: settings?.primary_cta_url || DEFAULT_CMS_SITE_SETTINGS.primaryCtaUrl,
+    secondaryCtaLabel: settings?.secondary_cta_label || DEFAULT_CMS_SITE_SETTINGS.secondaryCtaLabel,
+    secondaryCtaUrl: settings?.secondary_cta_url || DEFAULT_CMS_SITE_SETTINGS.secondaryCtaUrl,
+    bio: settings?.bio || DEFAULT_CMS_SITE_SETTINGS.bio,
+  };
+}
+
+export function normalizeProject(project: DirectusProject): CmsProject {
+  return {
+    id: project.id,
+    chapter: project.chapter || "work",
+    eyebrow: project.eyebrow || null,
+    title: project.title,
+    description: project.description || null,
+    tags: project.tags || [],
+    linkHref: project.link_href || null,
+    linkLabel: project.link_label || null,
+    linkTarget: project.link_target || null,
+    linkVariant: project.link_variant || null,
+    accentColor: project.accent_color || null,
+    wide: project.wide ?? false,
+    footerLabel: project.footer_label || null,
+    footerLive: project.footer_live ?? false,
+    statusLabel: project.status_label || null,
   };
 }
 
@@ -258,9 +323,13 @@ export function normalizePhotoSummary(
 
 export function normalizePhoto(
   event: H3Event | undefined,
-  photo: DirectusPhoto
+  photo: DirectusPhoto,
+  sets: CmsSetRef[] = []
 ): CmsPhoto {
-  return normalizePhotoSummary(event, photo);
+  return {
+    ...normalizePhotoSummary(event, photo),
+    sets,
+  };
 }
 
 export async function readDirectusSiteSettings(event?: H3Event) {
@@ -410,7 +479,29 @@ export async function readDirectusPhotoBySlug(
       })
     )) as DirectusPhoto[];
 
-    return photo ? normalizePhoto(event, photo) : null;
+    if (!photo) return null;
+
+    const links = (await client.request(
+      readItems("photosets_photos", {
+        fields: PHOTO_SET_LINK_FIELDS as never,
+        filter: { photos_id: { _eq: photo.id } },
+        limit: -1,
+      })
+    )) as Array<{ photosets_id: { id: number; slug: string; title: string; status?: string | null } | number }>;
+
+    const sets: CmsSetRef[] = links
+      .filter(
+        (row) =>
+          row.photosets_id &&
+          typeof row.photosets_id === "object" &&
+          (row.photosets_id as { status?: string | null }).status === "published"
+      )
+      .map((row) => {
+        const ps = row.photosets_id as { id: number; slug: string; title: string };
+        return { id: ps.id, slug: ps.slug, title: ps.title };
+      });
+
+    return normalizePhoto(event, photo, sets);
   } catch {
     return null;
   }
@@ -554,3 +645,22 @@ export async function readDirectusPhotosetBySlug(
   }
 }
 
+export async function readDirectusProjects(event: H3Event | undefined) {
+  const client = getDirectusClient(event);
+  if (!client) return [];
+
+  try {
+    const projects = (await client.request(
+      readItems("projects", {
+        fields: PROJECT_FIELDS as never,
+        filter: { status: { _eq: "published" } },
+        sort: ["sort", "id"] as never,
+        limit: -1,
+      })
+    )) as DirectusProject[];
+
+    return projects.map(normalizeProject);
+  } catch {
+    return [];
+  }
+}

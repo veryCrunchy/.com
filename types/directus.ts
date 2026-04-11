@@ -11,9 +11,18 @@ export const DEFAULT_CMS_SITE_SETTINGS: CmsSiteSettings = {
   navCtaUrl: "https://ko-fi.com/verycrunchy",
   postsLabel: "Blog",
   photosLabel: "Photos",
+  heroTagline: "Fullstack developer \u2014 web apps, developer tools, and interactive experiences.",
+  heroDescription: "I care about clean code, fast interfaces, and products that feel good to use. Self-taught, ship-first, always building something.",
+  availabilityLabel: "Available for freelance work",
+  availabilityActive: true,
+  primaryCtaLabel: "View my GitHub \u2192",
+  primaryCtaUrl: "https://github.com/verycrunchy",
+  secondaryCtaLabel: "Support me",
+  secondaryCtaUrl: "https://ko-fi.com/verycrunchy",
+  bio: "",
 };
 
-export interface DirectusAsset extends Partial<DirectusFile> {
+export interface DirectusAsset {
   id: string;
   title?: string | null;
   description?: string | null;
@@ -33,6 +42,15 @@ export interface DirectusSiteSettings {
   nav_cta_url?: string | null;
   posts_label?: string | null;
   photos_label?: string | null;
+  hero_tagline?: string | null;
+  hero_description?: string | null;
+  availability_label?: string | null;
+  availability_active?: boolean | null;
+  primary_cta_label?: string | null;
+  primary_cta_url?: string | null;
+  secondary_cta_label?: string | null;
+  secondary_cta_url?: string | null;
+  bio?: string | null;
 }
 
 export interface DirectusPost {
@@ -64,6 +82,27 @@ export interface DirectusPhoto {
   tags?: string[] | null;
 }
 
+export interface DirectusProject {
+  id: number;
+  status?: string | null;
+  sort?: number | null;
+  chapter?: string | null;
+  eyebrow?: string | null;
+  title: string;
+  description?: string | null;
+  tags?: Array<{ label: string; variant?: string }> | null;
+  link_href?: string | null;
+  link_label?: string | null;
+  link_target?: string | null;
+  link_variant?: string | null;
+  accent_color?: string | null;
+  wide?: boolean | null;
+  footer_label?: string | null;
+  footer_live?: boolean | null;
+  status_label?: string | null;
+}
+
+
 export interface DirectusPhotosetPhoto {
   id: number;
   photosets_id: number;
@@ -89,6 +128,7 @@ export interface DirectusSchema {
   photos: DirectusPhoto[];
   photosets: DirectusPhotoset[];
   photosets_photos: DirectusPhotosetPhoto[];
+  projects: DirectusProject[];
 }
 
 export interface CmsAsset {
@@ -111,7 +151,35 @@ export interface CmsSiteSettings {
   navCtaUrl: string;
   postsLabel: string;
   photosLabel: string;
+  heroTagline: string;
+  heroDescription: string;
+  availabilityLabel: string;
+  availabilityActive: boolean;
+  primaryCtaLabel: string;
+  primaryCtaUrl: string;
+  secondaryCtaLabel: string;
+  secondaryCtaUrl: string;
+  bio: string;
 }
+
+export interface CmsProject {
+  id: number;
+  chapter: string;
+  eyebrow: string | null;
+  title: string;
+  description: string | null;
+  tags: Array<{ label: string; variant?: string }>;
+  linkHref: string | null;
+  linkLabel: string | null;
+  linkTarget: string | null;
+  linkVariant: string | null;
+  accentColor: string | null;
+  wide: boolean;
+  footerLabel: string | null;
+  footerLive: boolean;
+  statusLabel: string | null;
+}
+
 
 export interface CmsPostSummary {
   id: string;
@@ -156,10 +224,19 @@ export interface CmsPhotoset extends CmsPhotosetSummary {
   photos: CmsPhotoSummary[];
 }
 
-export interface CmsPhoto extends CmsPhotoSummary {}
+export interface CmsSetRef {
+  id: number;
+  slug: string;
+  title: string;
+}
+
+export interface CmsPhoto extends CmsPhotoSummary {
+  sets: CmsSetRef[];
+}
 
 export interface CmsHomePayload {
   site: CmsSiteSettings;
   recentPosts: CmsPostSummary[];
   recentPhotos: CmsPhotoSummary[];
+  projects: CmsProject[];
 }

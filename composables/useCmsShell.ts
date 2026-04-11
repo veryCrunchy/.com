@@ -7,6 +7,7 @@ const DEFAULT_CMS_HOME_PAYLOAD: CmsHomePayload = {
   site: DEFAULT_CMS_SITE_SETTINGS,
   recentPosts: [],
   recentPhotos: [],
+  projects: [],
 };
 
 export function useCmsShell() {

@@ -11,6 +11,35 @@
 
   const photo = computed(() => data.value.photo);
 
+  // Set context: when navigating from a set page via ?from=setSlug
+  const fromSet = computed(() => String(route.query.from || ""));
+
+  const { data: setCtxData } = await useAsyncData(
+    () => (fromSet.value ? `cms-photoset-${fromSet.value}` : "__no-set-ctx__"),
+    async () => {
+      if (!fromSet.value) return null;
+      return $fetch(`/api/cms/photosets/${fromSet.value}`);
+    }
+  );
+
+  const setContext = computed(() => setCtxData.value?.photoset ?? null);
+
+  const photoIndexInSet = computed(() => {
+    if (!setContext.value?.photos) return -1;
+    return setContext.value.photos.findIndex((p: { slug: string }) => p.slug === slug.value);
+  });
+
+  const prevInSet = computed(() => {
+    if (photoIndexInSet.value <= 0) return null;
+    return setContext.value!.photos[photoIndexInSet.value - 1];
+  });
+
+  const nextInSet = computed(() => {
+    const idx = photoIndexInSet.value;
+    if (idx === -1 || !setContext.value || idx >= setContext.value.photos.length - 1) return null;
+    return setContext.value.photos[idx + 1];
+  });
+
   useSeoMeta({
     title: computed(() => `${photo.value.title} | Photos | veryCrunchy`),
     description: computed(
@@ -35,7 +64,28 @@
 <template>
   <main class="photo-entry-page">
     <section class="photo-entry-shell">
-      <NuxtLink to="/photos" class="photo-entry-back">← Photos</NuxtLink>
+      <div class="photo-entry-topbar">
+        <NuxtLink to="/photos" class="photo-entry-back">← Photos</NuxtLink>
+        <nav v-if="setContext" class="photo-entry-set-nav">
+          <NuxtLink
+            v-if="prevInSet"
+            :to="`/photos/${prevInSet.slug}?from=${fromSet}`"
+            :title="prevInSet.title"
+            class="set-nav-arrow"
+          >←</NuxtLink>
+          <span v-else class="set-nav-gap" />
+          <NuxtLink :to="`/photosets/${setContext.slug}`" class="set-nav-pill">
+            {{ setContext.title }}<span class="set-nav-count"> · {{ photoIndexInSet + 1 }} / {{ setContext.photos.length }}</span>
+          </NuxtLink>
+          <NuxtLink
+            v-if="nextInSet"
+            :to="`/photos/${nextInSet.slug}?from=${fromSet}`"
+            :title="nextInSet.title"
+            class="set-nav-arrow"
+          >→</NuxtLink>
+          <span v-else class="set-nav-gap" />
+        </nav>
+      </div>
 
       <header
         class="photo-entry-head"
@@ -73,6 +123,16 @@
       <div v-if="photo.tags.length" class="photo-entry-tags">
         <span v-for="tag in photo.tags" :key="tag">{{ tag }}</span>
       </div>
+
+      <div v-if="photo.sets?.length" class="photo-entry-in-sets">
+        <span class="photo-entry-in-sets-label">Part of</span>
+        <NuxtLink
+          v-for="set in photo.sets"
+          :key="set.slug"
+          :to="`/photosets/${set.slug}`"
+          class="photo-entry-set-chip"
+        >{{ set.title }}</NuxtLink>
+      </div>
     </section>
   </main>
 </template>
@@ -102,6 +162,98 @@
 
   .photo-entry-back:hover {
     color: #e2e8f0;
+  }
+
+  .photo-entry-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .photo-entry-set-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .set-nav-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 50%;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(8, 15, 10, 0.6);
+    color: #94a3b8;
+    font-size: 0.82rem;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+
+  .set-nav-arrow:hover {
+    border-color: rgba(134, 239, 172, 0.38);
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.08);
+  }
+
+  .set-nav-gap {
+    display: inline-block;
+    width: 1.9rem;
+  }
+
+  .set-nav-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.28rem 0.72rem;
+    border-radius: 999px;
+    border: 1px solid rgba(74, 222, 128, 0.22);
+    background: rgba(34, 197, 94, 0.08);
+    font-size: 0.78rem;
+    color: #86efac;
+    white-space: nowrap;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .set-nav-pill:hover {
+    border-color: rgba(134, 239, 172, 0.38);
+    background: rgba(34, 197, 94, 0.14);
+  }
+
+  .set-nav-count {
+    color: #64748b;
+  }
+
+  .photo-entry-in-sets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 1.2rem;
+  }
+
+  .photo-entry-in-sets-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .photo-entry-set-chip {
+    border-radius: 999px;
+    border: 1px solid rgba(74, 222, 128, 0.22);
+    background: rgba(34, 197, 94, 0.1);
+    color: #86efac;
+    padding: 0.28rem 0.68rem;
+    font-size: 0.78rem;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+
+  .photo-entry-set-chip:hover {
+    border-color: rgba(134, 239, 172, 0.38);
+    background: rgba(34, 197, 94, 0.16);
+    color: #d1fae5;
   }
 
   .photo-entry-head {
@@ -192,6 +344,22 @@
     .photo-entry-head {
       grid-template-columns: minmax(0, 1.3fr) minmax(16rem, 0.7fr);
       align-items: end;
+    }
+  }
+
+  @media (max-width: 540px) {
+    .photo-entry-page {
+      padding: 5.5rem 1rem 3rem;
+    }
+
+    .photo-entry-frame {
+      border-radius: 1rem;
+    }
+
+    .set-nav-pill {
+      max-width: 9rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   }
 </style>

@@ -57,7 +57,7 @@
       <div
         class="entry-content"
         data-directus-field="content"
-        v-html="post.content || '<p>No content yet.</p>'"
+        v-html="post.content || ''"
       ></div>
     </article>
   </main>
@@ -249,6 +249,16 @@
   @media (min-width: 900px) {
     .entry-page {
       padding-inline: 2rem;
+    }
+  }
+
+  @media (max-width: 540px) {
+    .entry-page {
+      padding: 5.5rem 1rem 3rem;
+    }
+
+    .entry-cover {
+      border-radius: 0.75rem;
     }
   }
 </style>
