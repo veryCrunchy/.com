@@ -174,9 +174,9 @@
 
 <template>
   <main
-    class="text-white bg-#171717 flex flex-col justify-center items-center min-h-screen bg-gradient-to-br from-#0d0822/5 to-#1a0a2a/10"
+    class="flex min-h-screen flex-col items-center justify-center bg-[#171717] bg-gradient-to-br from-[#0d0822]/5 to-[#1a0a2a]/10 text-white"
   >
-    <div class="m-5 space-y-5 w-95vw max-w-110">
+    <div class="m-5 w-[95vw] max-w-[27.5rem] space-y-5">
       <div
         v-if="showUserCard && data?.discord_user"
         class="bg-primary rounded-md"
@@ -206,7 +206,7 @@
            `"
             >
               <div
-                class="hover:cursor-pointer absolute right-3 top-3 transition-colors-200 bg-black/30 hover:bg-black/50 p2 rounded-full"
+                class="absolute right-3 top-3 rounded-full bg-black/30 p-2 transition-colors duration-200 hover:cursor-pointer hover:bg-black/50"
                 aria-label="Edit Profile"
                 role="button"
                 @click="toggleShowUserCard"
@@ -225,7 +225,7 @@
           <text
             x="155"
             y="240"
-            class="select-none font-600 font-[poppins]"
+            class="font-poppins select-none font-semibold"
             font-size="20"
             fill="white"
           >
@@ -234,7 +234,7 @@
           <text
             x="155"
             y="260"
-            class="select-none font-400 text-sm font-[poppins]"
+            class="font-poppins select-none text-sm font-normal"
             font-size="20"
             fill="gray"
           >
@@ -252,7 +252,7 @@
         </svg>
       </div>
       <div
-        class="hover:cursor-pointer ml-a w-fit transition-colors-200 bg-primary hover:bg-black/50 p2 rounded-full"
+        class="ml-auto w-fit rounded-full bg-primary p-2 transition-colors duration-200 hover:cursor-pointer hover:bg-black/50"
         aria-label="Edit Profile"
         role="button"
         v-if="!showUserCard"
@@ -271,16 +271,16 @@
           </svg>
         </svg>
       </div>
-      <div v-if="activities?.length" class="space-y-5 p5 bg-primary rounded-md">
+      <div v-if="activities?.length" class="space-y-5 rounded-md bg-primary p-5">
         <div v-for="activity in activities" :key="activity.id">
-          <div class="text-gray-200 font-[poppins] items-center">
+          <div class="font-poppins items-center text-gray-200">
             <h1
-              class="text-sm uppercase font-bold mb-1 sm:hidden truncate h-5.2 leading-5"
+              class="mb-1 h-[1.3rem] truncate text-sm leading-5 font-bold uppercase max-sm:hidden"
               :title="activity.name"
             >
               {{ getActivityType(activity.type) }} {{ activity.name }}
             </h1>
-            <div class="flex items-center lt-sm:text-sm">
+            <div class="flex items-center max-sm:text-sm">
               <div class="size-20 sm:size-25 relative">
                 <NuxtImg
                   :title="activity.assets?.large_text"
@@ -316,10 +316,10 @@
                 ></NuxtImg>
               </div>
               <div
-                class="space-y-.2 ml2.5 sm:ml5 w-[calc(100%_-_5.6rem)] sm:w-[calc(100%_-_7.50rem)] my-a"
+                class="my-auto ml-2.5 w-[calc(100%_-_5.6rem)] space-y-[0.05rem] sm:ml-5 sm:w-[calc(100%_-_7.5rem)]"
               >
                 <h1
-                  class="font-semibold lt-sm:hidden truncate h-5.2 leading-5"
+                  class="h-[1.3rem] truncate leading-5 font-semibold max-sm:hidden"
                   :title="activity.name"
                 >
                   {{ getActivityType(activity.type) }}
@@ -328,7 +328,7 @@
                 <p
                   v-if="activity.details"
                   :title="activity.details"
-                  class="truncate h-5.2 leading-5"
+                  class="h-[1.3rem] truncate leading-5"
                 >
                   {{ activity.details }}
                 </p>
@@ -338,7 +338,7 @@
                     (activity.type !== 6 || activity.state !== 'custom')
                   "
                   :title="activity.state"
-                  class="truncate h-5.2 leading-5"
+                  class="h-[1.3rem] truncate leading-5"
                 >
                   {{
                     activity.type == 6
@@ -350,15 +350,15 @@
                   <div
                     v-if="activity.timestamps.start && activity.timestamps.end"
                   >
-                    <div class="w-full rounded-md h-1 mt1 bg-secondary">
+                    <div class="mt-1 h-1 w-full rounded-md bg-secondary">
                       <div
                         :style="`width: ${
                           getTimeProgress(activity.timestamps)?.completion
                         }%`"
-                        class="h-full transition-width transition-ease-linear transition-width-500 rounded-md bg-gray-200"
+                        class="h-full rounded-md bg-gray-200 transition-[width] duration-500 ease-linear"
                       ></div>
                     </div>
-                    <div class="text-sm space-x-1 h-4.2 flex justify-between">
+                    <div class="flex h-[1.05rem] justify-between space-x-1 text-sm">
                       <p>
                         {{ getTimeProgress(activity.timestamps)?.start }}
                       </p>
@@ -368,7 +368,7 @@
                     </div>
                   </div>
                   <div v-else>
-                    <p class="truncate h-5.2 leading-5">
+                    <p class="h-[1.3rem] truncate leading-5">
                       {{ getTime(activity.timestamps) }}
                     </p>
                   </div>
@@ -378,7 +378,7 @@
             <div v-if="activity.buttons && false" class="space-y-2 mt-4">
               <div
                 v-for="button in activity.buttons"
-                class="bg-secondary text-nowrap text-dim px4 h-8 rounded-md min-w-20 flex justify-center items-center"
+                class="flex h-8 min-w-20 items-center justify-center rounded-md bg-secondary px-4 text-dim text-nowrap"
               >
                 {{ button }}
               </div>

@@ -1,0 +1,360 @@
+import { createDirectus, readItems, rest, staticToken } from "@directus/sdk";
+import type { H3Event } from "h3";
+
+import type {
+  CmsAsset,
+  CmsPhoto,
+  CmsPhotoSummary,
+  CmsPost,
+  CmsPostSummary,
+  CmsSiteSettings,
+  DirectusAsset,
+  DirectusPhoto,
+  DirectusPost,
+  DirectusSchema,
+  DirectusSiteSettings,
+} from "~/types/directus";
+import { DEFAULT_CMS_SITE_SETTINGS } from "~/types/directus";
+
+const SITE_SETTINGS_FIELDS = [
+  "id",
+  "site_name",
+  "site_tagline",
+  "site_description",
+  "github_url",
+  "support_url",
+  "nav_cta_label",
+  "nav_cta_url",
+  "posts_label",
+  "photos_label",
+];
+
+const POST_FIELDS = [
+  "id",
+  "status",
+  "slug",
+  "title",
+  "excerpt",
+  "content",
+  "published_at",
+  "featured",
+  "tags",
+  {
+    cover_image: ["id", "title", "description", "width", "height", "filename_download"],
+  },
+];
+
+const PHOTO_FIELDS = [
+  "id",
+  "status",
+  "slug",
+  "title",
+  "description",
+  "published_at",
+  "taken_at",
+  "location",
+  "camera",
+  "lens",
+  "featured",
+  "tags",
+  {
+    image: ["id", "title", "description", "width", "height", "filename_download"],
+  },
+];
+
+export function getDirectusClient(event?: H3Event) {
+  const config = useRuntimeConfig(event);
+  const directusUrl = config.public.directusUrl;
+
+  if (!directusUrl) {
+    return null;
+  }
+
+  let client = createDirectus<DirectusSchema>(directusUrl).with(rest());
+
+  if (config.directusToken) {
+    client = client.with(staticToken(config.directusToken));
+  }
+
+  return client;
+}
+
+export function getDirectusUrl(event?: H3Event) {
+  return useRuntimeConfig(event).public.directusUrl || "";
+}
+
+export function buildDirectusAssetUrl(
+  event: H3Event | undefined,
+  asset: string | DirectusAsset | null | undefined,
+  params?: Record<string, string | number | null | undefined>
+) {
+  const assetId = typeof asset === "string" ? asset : asset?.id;
+  const directusUrl = getDirectusUrl(event);
+
+  if (!assetId || !directusUrl) {
+    return null;
+  }
+
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value === undefined || value === null || value === "") continue;
+    query.set(key, String(value));
+  }
+
+  const qs = query.toString();
+
+  return `${directusUrl}/assets/${assetId}${qs ? `?${qs}` : ""}`;
+}
+
+function normalizeAsset(
+  event: H3Event | undefined,
+  asset: string | DirectusAsset | null | undefined,
+  params?: Record<string, string | number | null | undefined>
+): CmsAsset | null {
+  const directusAsset = typeof asset === "string" ? null : asset;
+  const id = typeof asset === "string" ? asset : asset?.id;
+  const url = buildDirectusAssetUrl(event, asset, params);
+
+  if (!id || !url) {
+    return null;
+  }
+
+  return {
+    id,
+    alt: directusAsset?.description || directusAsset?.title || null,
+    width: directusAsset?.width ?? null,
+    height: directusAsset?.height ?? null,
+    downloadFilename: directusAsset?.filename_download ?? null,
+    url,
+  };
+}
+
+export function normalizeSiteSettings(
+  settings?: DirectusSiteSettings | null
+): CmsSiteSettings {
+  return {
+    siteName: settings?.site_name || DEFAULT_CMS_SITE_SETTINGS.siteName,
+    siteTagline: settings?.site_tagline || DEFAULT_CMS_SITE_SETTINGS.siteTagline,
+    siteDescription:
+      settings?.site_description || DEFAULT_CMS_SITE_SETTINGS.siteDescription,
+    githubUrl: settings?.github_url || DEFAULT_CMS_SITE_SETTINGS.githubUrl,
+    supportUrl: settings?.support_url || DEFAULT_CMS_SITE_SETTINGS.supportUrl,
+    navCtaLabel: settings?.nav_cta_label || DEFAULT_CMS_SITE_SETTINGS.navCtaLabel,
+    navCtaUrl: settings?.nav_cta_url || DEFAULT_CMS_SITE_SETTINGS.navCtaUrl,
+    postsLabel: settings?.posts_label || DEFAULT_CMS_SITE_SETTINGS.postsLabel,
+    photosLabel: settings?.photos_label || DEFAULT_CMS_SITE_SETTINGS.photosLabel,
+  };
+}
+
+export function normalizePostSummary(
+  event: H3Event | undefined,
+  post: DirectusPost
+): CmsPostSummary {
+  return {
+    id: post.id,
+    slug: post.slug,
+    title: post.title,
+    excerpt: post.excerpt || null,
+    publishedAt: post.published_at || null,
+    tags: post.tags || [],
+    coverImage: normalizeAsset(event, post.cover_image, {
+      width: 1600,
+      quality: 82,
+      fit: "cover",
+    }),
+  };
+}
+
+export function normalizePost(
+  event: H3Event | undefined,
+  post: DirectusPost
+): CmsPost {
+  return {
+    ...normalizePostSummary(event, post),
+    content: post.content || null,
+  };
+}
+
+export function normalizePhotoSummary(
+  event: H3Event | undefined,
+  photo: DirectusPhoto
+): CmsPhotoSummary {
+  return {
+    id: photo.id,
+    slug: photo.slug,
+    title: photo.title,
+    description: photo.description || null,
+    publishedAt: photo.published_at || null,
+    takenAt: photo.taken_at || null,
+    location: photo.location || null,
+    camera: photo.camera || null,
+    lens: photo.lens || null,
+    tags: photo.tags || [],
+    image: normalizeAsset(event, photo.image, {
+      width: 1800,
+      quality: 84,
+      fit: "cover",
+    }),
+  };
+}
+
+export function normalizePhoto(
+  event: H3Event | undefined,
+  photo: DirectusPhoto
+): CmsPhoto {
+  return normalizePhotoSummary(event, photo);
+}
+
+export async function readDirectusSiteSettings(event?: H3Event) {
+  const client = getDirectusClient(event);
+
+  if (!client) {
+    return DEFAULT_CMS_SITE_SETTINGS;
+  }
+
+  try {
+    const [settings] = await client.request(
+      readItems("site_settings", {
+        limit: 1,
+        fields: SITE_SETTINGS_FIELDS,
+      })
+    );
+
+    return normalizeSiteSettings(settings || null);
+  } catch {
+    return DEFAULT_CMS_SITE_SETTINGS;
+  }
+}
+
+export async function readDirectusPosts(
+  event: H3Event | undefined,
+  options?: {
+    limit?: number;
+    featured?: boolean;
+  }
+) {
+  const client = getDirectusClient(event);
+
+  if (!client) {
+    return [];
+  }
+
+  try {
+    const posts = await client.request(
+      readItems("posts", {
+        fields: POST_FIELDS,
+        filter: {
+          status: {
+            _eq: "published",
+          },
+          ...(options?.featured ? { featured: { _eq: true } } : {}),
+        },
+        sort: ["-featured", "-published_at", "-date_created"],
+        limit: options?.limit ?? -1,
+      })
+    );
+
+    return posts.map((post) => normalizePostSummary(event, post));
+  } catch {
+    return [];
+  }
+}
+
+export async function readDirectusPostBySlug(
+  event: H3Event | undefined,
+  slug: string
+) {
+  const client = getDirectusClient(event);
+
+  if (!client) {
+    return null;
+  }
+
+  try {
+    const [post] = await client.request(
+      readItems("posts", {
+        fields: POST_FIELDS,
+        filter: {
+          status: {
+            _eq: "published",
+          },
+          slug: {
+            _eq: slug,
+          },
+        },
+        limit: 1,
+      })
+    );
+
+    return post ? normalizePost(event, post) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function readDirectusPhotos(
+  event: H3Event | undefined,
+  options?: {
+    limit?: number;
+    featured?: boolean;
+  }
+) {
+  const client = getDirectusClient(event);
+
+  if (!client) {
+    return [];
+  }
+
+  try {
+    const photos = await client.request(
+      readItems("photos", {
+        fields: PHOTO_FIELDS,
+        filter: {
+          status: {
+            _eq: "published",
+          },
+          ...(options?.featured ? { featured: { _eq: true } } : {}),
+        },
+        sort: ["-featured", "-taken_at", "-published_at", "-date_created"],
+        limit: options?.limit ?? -1,
+      })
+    );
+
+    return photos.map((photo) => normalizePhotoSummary(event, photo));
+  } catch {
+    return [];
+  }
+}
+
+export async function readDirectusPhotoBySlug(
+  event: H3Event | undefined,
+  slug: string
+) {
+  const client = getDirectusClient(event);
+
+  if (!client) {
+    return null;
+  }
+
+  try {
+    const [photo] = await client.request(
+      readItems("photos", {
+        fields: PHOTO_FIELDS,
+        filter: {
+          status: {
+            _eq: "published",
+          },
+          slug: {
+            _eq: slug,
+          },
+        },
+        limit: 1,
+      })
+    );
+
+    return photo ? normalizePhoto(event, photo) : null;
+  } catch {
+    return null;
+  }
+}

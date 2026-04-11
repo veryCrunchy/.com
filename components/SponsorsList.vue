@@ -20,102 +20,74 @@
 </script>
 
 <template>
-  <div class="flex flex-col gap-8">
-    <h2 class="sponsors-heading">{{ "My Beloved Sponsors<3" }}</h2>
-
-    <!-- GitHub Sponsors -->
-    <div class="flex gap-4">
-      <span v-if="githubSponsorsList.length">
-        <div class="flex gap-4 justify-center"></div>
-      </span>
+  <div class="grid gap-6">
+    <div class="flex items-center justify-between">
+      <h3 class="text-xl font-semibold tracking-tight text-zinc-100">Current Sponsors</h3>
+      <p class="text-xs uppercase tracking-[0.2em] text-zinc-500">Thank you</p>
     </div>
 
-    <!-- Ko-fi Sponsors -->
-    <div v-if="kofiSponsorsList.length" class="flex gap-4">
-      <div class="flex flex-wrap gap-4 justify-center">
-        <h3 class="platform-separator github-separator text-xs px1">GitHub</h3>
-
-        <div
+    <section v-if="githubSponsorsList.length" class="space-y-3">
+      <p class="platform-title">GitHub Sponsors</p>
+      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <article
           v-for="sponsor in githubSponsorsList"
           :key="sponsor.login"
-          class="hover sponsor-card github-card flex items-center gap-3 p-3 rounded-xl"
+          class="hover sponsor-card flex items-center gap-3"
         >
           <img
             :src="sponsor.avatarUrl"
             :alt="sponsor.login"
-            class="w-8 h-8 rounded-full"
+            class="h-10 w-10 rounded-full border border-zinc-600 object-cover"
           />
-          <div class="flex flex-col">
-            <h3 class="text-sm font-bold">@{{ sponsor.login }}</h3>
-            <p class="text-xs op-70">{{ sponsor.name }}</p>
+          <div class="min-w-0">
+            <h4 class="truncate text-sm font-semibold text-zinc-100">@{{ sponsor.login }}</h4>
+            <p class="truncate text-xs text-zinc-400">{{ sponsor.name || "GitHub Sponsor" }}</p>
           </div>
-        </div>
-        <h3 class="platform-separator kofi-separator">Ko-fi</h3>
+        </article>
+      </div>
+    </section>
 
-        <div
+    <section v-if="kofiSponsorsList.length" class="space-y-3">
+      <p class="platform-title">Ko-fi Supporters</p>
+      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <article
           v-for="sponsor in kofiSponsorsList"
           :key="sponsor.name"
-          class="hover sponsor-card kofi-card flex items-center gap-3 p-3 rounded-xl"
+          class="hover sponsor-card"
         >
-          <div class="flex flex-col">
-            <h3 class="text-sm font-bold">{{ sponsor.name }}</h3>
-            <p class="text-xs op-70">Total: ${{ sponsor.total }}</p>
-          </div>
-        </div>
+          <h4 class="text-sm font-semibold text-zinc-100">{{ sponsor.name }}</h4>
+          <p class="mt-1 text-xs text-zinc-400">Total: ${{ sponsor.total }}</p>
+        </article>
       </div>
+    </section>
+
+    <div
+      v-if="!githubSponsorsList.length && !kofiSponsorsList.length"
+      class="rounded-xl border border-zinc-700/60 bg-zinc-900/60 p-4 text-sm text-zinc-400"
+    >
+      Sponsors will appear here once available.
     </div>
   </div>
 </template>
 
 <style scoped>
-  .sponsors-heading {
-    font-size: 2rem;
-    text-align: center;
-    color: var(--primary);
-    text-shadow: 0 0 15px var(--primary), 0 0 30px var(--primary);
-    margin-bottom: 1rem;
-  }
-
-  .platform-separator {
-    font-size: 1.5rem;
-    text-align: center;
-    border-radius: 0.2rem;
-    padding-top: 0.2rem;
-    padding-bottom: 0.2rem;
-    writing-mode: sideways-lr;
-    color: white;
-  }
-
-  .github-separator {
-    background-color: #ea4aaa;
-  }
-
-  .kofi-separator {
-    background-color: #29abe0;
+  .platform-title {
+    font-size: 0.73rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #94a3b8;
   }
 
   .sponsor-card {
-    border: 1px solid var(--primary);
-    background: rgba(20, 20, 20, 0.8);
+    border: 1px solid rgba(113, 113, 122, 0.6);
+    border-radius: 0.75rem;
+    background: rgba(24, 24, 27, 0.7);
+    padding: 0.75rem;
     transition: all 0.3s ease;
   }
 
-  .active-sponsor {
-    box-shadow: 0 0 15px var(--primary), 0 0 30px var(--primary);
-    background: linear-gradient(
-      135deg,
-      rgba(30, 30, 30, 0.9),
-      rgba(10, 10, 10, 0.8)
-    );
-  }
-
-  .past-sponsor {
-    opacity: 0.5;
-    filter: grayscale(100%);
-  }
-
   .sponsor-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 5px 15px -5px var(--primary);
+    border-color: rgba(148, 163, 184, 0.65);
+    box-shadow: 0 12px 24px -18px rgba(148, 163, 184, 0.75);
   }
 </style>

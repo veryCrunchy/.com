@@ -1,6 +1,4 @@
 <script setup lang="ts">
-  import { ref, onMounted } from "vue";
-
   const donations = [
     {
       name: "Ko-Fi",
@@ -30,9 +28,12 @@
 </script>
 
 <template>
-  <div class="flex flex-col gap-12 w-full max-w-4xl">
-    <h2 class="text-center text-4xl">Support My Work or Hobbies :3</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 justify-center">
+  <div class="grid gap-6">
+    <div class="flex items-center justify-between">
+      <h3 class="text-xl font-semibold tracking-tight text-zinc-100">Support The Work</h3>
+      <p class="text-xs uppercase tracking-[0.2em] text-zinc-500">Contribute</p>
+    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <a
         v-for="option in donations"
         :key="option.name"
@@ -42,19 +43,18 @@
         hs-dist="100"
         class="hover donation-card group"
       >
-        <div
-          class="flex flex-col items-center gap-3 p-8 border-1 border-op-20 transition-all duration-300"
-        >
-          <div class="flex items-center justify-center gap-4">
-            <span class="text-3xl donation-icon">{{ option.icon }}</span>
-            <h3 class="text-xl">
+        <article class="flex h-full flex-col gap-4 p-5">
+          <div class="flex items-center justify-between">
+            <h4 class="text-base font-semibold text-zinc-100">
               {{ option.name }}
-            </h3>
+            </h4>
+            <span class="text-2xl donation-icon">{{ option.icon }}</span>
           </div>
-          <p class="text-sm op-80 text-center">
+          <p class="text-sm leading-relaxed text-zinc-300">
             {{ option.description }}
           </p>
-        </div>
+          <span class="mt-auto text-xs uppercase tracking-[0.18em] text-zinc-400">Open Link</span>
+        </article>
       </a>
     </div>
   </div>
@@ -62,57 +62,19 @@
 
 <style scoped>
   .donation-card {
-    position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 1rem;
-    backdrop-filter: blur(10px);
-    background: linear-gradient(
-      135deg,
-      rgba(34, 15, 78, 0.01),
-      rgba(96, 36, 145, 0.01)
-    );
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(113, 113, 122, 0.6);
+    border-radius: 0.9rem;
+    background: rgba(24, 24, 27, 0.7);
+    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
   }
 
   .donation-card:hover {
-    transform: translateY(-6px);
-    transition: all 0.4s ease;
-    box-shadow: 0 0 20px var(--primary), 0 0 2px var(--primary);
+    transform: translateY(-2px);
+    border-color: rgba(148, 163, 184, 0.65);
+    box-shadow: 0 12px 24px -18px rgba(148, 163, 184, 0.75);
   }
 
   .donation-icon {
-    filter: drop-shadow(0 0 10px var(--primary));
-  }
-
-  .donation-card:hover .donation-icon {
-    animation: float 2s ease-in-out infinite, glow 1.5s alternate infinite;
-  }
-
-  @keyframes float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-5px);
-    }
-  }
-
-  @keyframes glow {
-    from {
-      filter: drop-shadow(0 0 10px var(--primary));
-    }
-    to {
-      filter: drop-shadow(0 0 20px var(--primary));
-    }
-  }
-
-  .stripe-buy-button-container {
-    text-align: center;
-  }
-
-  stripe-buy-button {
-    margin-top: 1rem;
-    width: 100%;
+    color: #cbd5e1;
   }
 </style>

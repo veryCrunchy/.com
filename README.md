@@ -1,41 +1,81 @@
-# Nuxt 3 Minimal Starter
+# veryCrunchy Site
 
-Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Nuxt 3 frontend with a Directus-powered content layer for:
+
+- site settings
+- blog posts
+- photo archive
 
 ## Setup
 
 Make sure to install the dependencies:
 
 ```bash
-# npm
-npm install
-
-# pnpm
 pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
 ```
+
+Create a `.env` file with the Directus connection details:
+
+```bash
+NUXT_PUBLIC_DIRECTUS_URL=https://your-directus-instance.example.com
+DIRECTUS_TOKEN=your_directus_static_token
+```
+
+`DIRECTUS_TOKEN` should be a read token with access to the public-facing collections below. If your Directus instance exposes these collections publicly, you can omit the token and the site will still render.
+
+## Directus Collections
+
+The site expects these collections:
+
+### `site_settings`
+
+Use a single item with these fields:
+
+- `site_name` string
+- `site_tagline` text
+- `site_description` text
+- `github_url` string
+- `support_url` string
+- `nav_cta_label` string
+- `nav_cta_url` string
+- `posts_label` string
+- `photos_label` string
+
+### `posts`
+
+- `status` string
+- `slug` string
+- `title` string
+- `excerpt` text
+- `content` text or rich text HTML
+- `cover_image` file
+- `published_at` datetime
+- `featured` boolean
+- `tags` JSON string array
+
+### `photos`
+
+- `status` string
+- `slug` string
+- `title` string
+- `description` text
+- `image` file
+- `published_at` datetime
+- `taken_at` datetime
+- `location` string
+- `camera` string
+- `lens` string
+- `featured` boolean
+- `tags` JSON string array
+
+Only items with `status = published` are exposed on the public site.
 
 ## Development Server
 
 Start the development server on `http://localhost:3000`:
 
 ```bash
-# npm
-npm run dev
-
-# pnpm
 pnpm run dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
 ## Production
@@ -43,33 +83,11 @@ bun run dev
 Build the application for production:
 
 ```bash
-# npm
-npm run build
-
-# pnpm
 pnpm run build
-
-# yarn
-yarn build
-
-# bun
-bun run build
 ```
 
 Locally preview production build:
 
 ```bash
-# npm
-npm run preview
-
-# pnpm
 pnpm run preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
 ```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.

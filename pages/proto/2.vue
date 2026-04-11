@@ -218,7 +218,7 @@
 <template>
   <div class="grain fixed pointer-events-none"></div>
 
-  <div class="fixed size-100% z-10 pointer-events-none">
+  <div class="pointer-events-none fixed z-10 size-full">
     <div
       ref="cursorSmall"
       id="cursorSmall"
@@ -227,25 +227,25 @@
       ⋆
     </div>
   </div>
-  <div class="fixed size-100% z--1 pointer-events-none">
+  <div class="pointer-events-none fixed z-[-1] size-full">
     <div ref="cursor" id="cursor"></div>
   </div>
   <main
     ref="main"
-    class="flex px-10 text-center justify-center flex-col space-y-20 items-center min-h-100dvh py-10 opacity-0 transition-opacity-500"
+    class="flex min-h-dvh flex-col items-center justify-center space-y-20 px-10 py-10 text-center opacity-0 transition-opacity duration-500"
   >
     <h2
       hs-size="93vw"
       hs-br="30%"
       hs-dist="32"
       @click="toggleTheme()"
-      class="hover color absolute right-5 top-5 px-5 my-5 transition-color-500 select-none"
+      class="color hover absolute right-5 top-5 my-5 px-5 select-none transition-colors duration-500"
     >
       THEME
     </h2>
     <div class="flex flex-col items-center">
       <h2 hs-size="300px" class="hover load-focus">W.I.P</h2>
-      <p class="text-white op-70">Enjoy this small prototype ♥</p>
+      <p class="text-white opacity-70">Enjoy this small prototype ♥</p>
     </div>
     <div>
       <h2 class="hover">Cursor</h2>
