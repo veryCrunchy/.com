@@ -47,7 +47,7 @@
       >
         <div v-if="post.coverImage" class="post-card-media">
           <img
-            :src="post.coverImage.url"
+            :src="post.coverImage.previewUrl || post.coverImage.url"
             :alt="post.coverImage.alt || post.title"
             loading="lazy"
           />

@@ -40,7 +40,7 @@
         <div class="set-card-image">
           <img
             v-if="set.coverImage"
-            :src="set.coverImage.url"
+            :src="set.coverImage.previewUrl || set.coverImage.url"
             :alt="set.coverImage.alt || set.title"
             loading="lazy"
           />

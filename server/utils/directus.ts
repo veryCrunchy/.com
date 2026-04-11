@@ -46,7 +46,7 @@ const POST_FIELDS = [
   {
     cover_image: ["id", "title", "description", "width", "height", "filename_download"],
   },
-];
+] as const;
 
 const PHOTO_FIELDS = [
   "id",
@@ -64,7 +64,7 @@ const PHOTO_FIELDS = [
   {
     image: ["id", "title", "description", "width", "height", "filename_download"],
   },
-];
+] as const;
 
 const PHOTOSET_BASE_FIELDS = [
   "id",
@@ -77,7 +77,7 @@ const PHOTOSET_BASE_FIELDS = [
   {
     cover_image: ["id", "title", "description", "width", "height", "filename_download"],
   },
-];
+] as const;
 
 const PHOTOSET_PHOTO_FIELDS = [
   "id",
@@ -100,7 +100,7 @@ const PHOTOSET_PHOTO_FIELDS = [
       },
     ],
   },
-];
+] as const;
 
 export function getDirectusClient(event?: H3Event) {
   const config = useRuntimeConfig(event);
@@ -137,7 +137,13 @@ export function buildDirectusAssetUrl(
 
   const query = new URLSearchParams();
 
-  for (const [key, value] of Object.entries(params || {})) {
+  const mergedParams = {
+    format: "auto",
+    withoutEnlargement: "true",
+    ...(params || {}),
+  };
+
+  for (const [key, value] of Object.entries(mergedParams)) {
     if (value === undefined || value === null || value === "") continue;
     query.set(key, String(value));
   }
@@ -150,11 +156,13 @@ export function buildDirectusAssetUrl(
 function normalizeAsset(
   event: H3Event | undefined,
   asset: string | DirectusAsset | null | undefined,
-  params?: Record<string, string | number | null | undefined>
+  params?: Record<string, string | number | null | undefined>,
+  previewParams?: Record<string, string | number | null | undefined>
 ): CmsAsset | null {
   const directusAsset = typeof asset === "string" ? null : asset;
   const id = typeof asset === "string" ? asset : asset?.id;
   const url = buildDirectusAssetUrl(event, asset, params);
+  const previewUrl = buildDirectusAssetUrl(event, asset, previewParams || params);
 
   if (!id || !url) {
     return null;
@@ -167,6 +175,7 @@ function normalizeAsset(
     height: directusAsset?.height ?? null,
     downloadFilename: directusAsset?.filename_download ?? null,
     url,
+    previewUrl,
   };
 }
 
@@ -200,7 +209,11 @@ export function normalizePostSummary(
     tags: post.tags || [],
     coverImage: normalizeAsset(event, post.cover_image, {
       width: 1600,
-      quality: 82,
+      quality: 80,
+    }, {
+      width: 960,
+      height: 540,
+      quality: 74,
       fit: "cover",
     }),
   };
@@ -232,8 +245,12 @@ export function normalizePhotoSummary(
     lens: photo.lens || null,
     tags: photo.tags || [],
     image: normalizeAsset(event, photo.image, {
-      width: 1800,
-      quality: 84,
+      width: 2200,
+      quality: 82,
+    }, {
+      width: 960,
+      height: 960,
+      quality: 74,
       fit: "cover",
     }),
   };
@@ -254,12 +271,12 @@ export async function readDirectusSiteSettings(event?: H3Event) {
   }
 
   try {
-    const [settings] = await client.request(
+    const [settings] = (await client.request(
       readItems("site_settings", {
         limit: 1,
-        fields: SITE_SETTINGS_FIELDS,
+        fields: SITE_SETTINGS_FIELDS as never,
       })
-    );
+    )) as DirectusSiteSettings[];
 
     return normalizeSiteSettings(settings || null);
   } catch {
@@ -281,19 +298,19 @@ export async function readDirectusPosts(
   }
 
   try {
-    const posts = await client.request(
+    const posts = (await client.request(
       readItems("posts", {
-        fields: POST_FIELDS,
+        fields: POST_FIELDS as never,
         filter: {
           status: {
             _eq: "published",
           },
           ...(options?.featured ? { featured: { _eq: true } } : {}),
         },
-        sort: ["-featured", "-published_at", "-date_created"],
+        sort: ["-featured", "-published_at", "-date_created"] as never,
         limit: options?.limit ?? -1,
       })
-    );
+    )) as DirectusPost[];
 
     return posts.map((post) => normalizePostSummary(event, post));
   } catch {
@@ -312,9 +329,9 @@ export async function readDirectusPostBySlug(
   }
 
   try {
-    const [post] = await client.request(
+    const [post] = (await client.request(
       readItems("posts", {
-        fields: POST_FIELDS,
+        fields: POST_FIELDS as never,
         filter: {
           status: {
             _eq: "published",
@@ -325,7 +342,7 @@ export async function readDirectusPostBySlug(
         },
         limit: 1,
       })
-    );
+    )) as DirectusPost[];
 
     return post ? normalizePost(event, post) : null;
   } catch {
@@ -347,19 +364,19 @@ export async function readDirectusPhotos(
   }
 
   try {
-    const photos = await client.request(
+    const photos = (await client.request(
       readItems("photos", {
-        fields: PHOTO_FIELDS,
+        fields: PHOTO_FIELDS as never,
         filter: {
           status: {
             _eq: "published",
           },
           ...(options?.featured ? { featured: { _eq: true } } : {}),
         },
-        sort: ["-featured", "-taken_at", "-published_at", "-date_created"],
+        sort: ["-featured", "-taken_at", "-published_at", "-date_created"] as never,
         limit: options?.limit ?? -1,
       })
-    );
+    )) as DirectusPhoto[];
 
     return photos.map((photo) => normalizePhotoSummary(event, photo));
   } catch {
@@ -378,9 +395,9 @@ export async function readDirectusPhotoBySlug(
   }
 
   try {
-    const [photo] = await client.request(
+    const [photo] = (await client.request(
       readItems("photos", {
-        fields: PHOTO_FIELDS,
+        fields: PHOTO_FIELDS as never,
         filter: {
           status: {
             _eq: "published",
@@ -391,7 +408,7 @@ export async function readDirectusPhotoBySlug(
         },
         limit: 1,
       })
-    );
+    )) as DirectusPhoto[];
 
     return photo ? normalizePhoto(event, photo) : null;
   } catch {
@@ -416,7 +433,11 @@ export function normalizePhotosetSummary(
     tags: photoset.tags || [],
     coverImage: normalizeAsset(event, photoset.cover_image, {
       width: 1800,
-      quality: 84,
+      quality: 80,
+    }, {
+      width: 960,
+      height: 540,
+      quality: 74,
       fit: "cover",
     }),
     photoCount: photos.length,
@@ -447,9 +468,9 @@ async function attachPhotosToPhotosets(
   }
 
   const photosetIds = photosets.map((photoset) => photoset.id);
-  const links = await client.request(
+  const links = (await client.request(
     readItems("photosets_photos", {
-      fields: PHOTOSET_PHOTO_FIELDS,
+      fields: PHOTOSET_PHOTO_FIELDS as never,
       filter: {
         photosets_id: {
           _in: photosetIds,
@@ -458,11 +479,11 @@ async function attachPhotosToPhotosets(
       sort: ["sort", "id"],
       limit: -1,
     })
-  );
+  )) as DirectusPhotosetPhoto[];
 
   const groupedLinks = new Map<number, DirectusPhotosetPhoto[]>();
 
-  for (const link of links as DirectusPhotosetPhoto[]) {
+  for (const link of links) {
     const group = groupedLinks.get(link.photosets_id) ?? [];
     group.push(link);
     groupedLinks.set(link.photosets_id, group);
@@ -482,18 +503,18 @@ export async function readDirectusPhotosets(
   if (!client) return [];
 
   try {
-    const photosets = await client.request(
+    const photosets = (await client.request(
       readItems("photosets", {
-        fields: PHOTOSET_BASE_FIELDS,
+        fields: PHOTOSET_BASE_FIELDS as never,
         filter: { status: { _eq: "published" } },
-        sort: ["-published_at"],
+        sort: ["-published_at"] as never,
         limit: options?.limit ?? -1,
       })
-    );
+    )) as DirectusPhotoset[];
 
     const photosetsWithPhotos = await attachPhotosToPhotosets(
       client,
-      photosets as DirectusPhotoset[]
+      photosets
     );
 
     return photosetsWithPhotos.map((ps) => normalizePhotosetSummary(event, ps));
@@ -510,22 +531,22 @@ export async function readDirectusPhotosetBySlug(
   if (!client) return null;
 
   try {
-    const [photoset] = await client.request(
+    const [photoset] = (await client.request(
       readItems("photosets", {
-        fields: PHOTOSET_BASE_FIELDS,
+        fields: PHOTOSET_BASE_FIELDS as never,
         filter: {
           status: { _eq: "published" },
           slug: { _eq: slug },
         },
         limit: 1,
       })
-    );
+    )) as DirectusPhotoset[];
 
     if (!photoset) {
       return null;
     }
 
-    const [photosetWithPhotos] = await attachPhotosToPhotosets(client, [photoset as DirectusPhotoset]);
+    const [photosetWithPhotos] = await attachPhotosToPhotosets(client, [photoset]);
 
     return photosetWithPhotos ? normalizePhotoset(event, photosetWithPhotos) : null;
   } catch {

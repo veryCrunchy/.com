@@ -46,7 +46,7 @@
         class="photo-card"
       >
         <div v-if="photo.image" class="photo-card-image">
-          <img :src="photo.image.url" :alt="photo.image.alt || photo.title" loading="lazy" />
+          <img :src="photo.image.previewUrl || photo.image.url" :alt="photo.image.alt || photo.title" loading="lazy" />
         </div>
         <div class="photo-card-copy">
           <div class="photo-card-head">

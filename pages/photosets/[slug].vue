@@ -65,7 +65,7 @@
           <div class="set-photo-frame">
             <img
               v-if="photo.image"
-              :src="photo.image.url"
+              :src="photo.image.previewUrl || photo.image.url"
               :alt="photo.image.alt || photo.title"
               loading="lazy"
             />

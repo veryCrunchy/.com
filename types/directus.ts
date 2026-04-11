@@ -98,6 +98,7 @@ export interface CmsAsset {
   height: number | null;
   downloadFilename: string | null;
   url: string;
+  previewUrl: string | null;
 }
 
 export interface CmsSiteSettings {
