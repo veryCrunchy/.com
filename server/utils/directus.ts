@@ -4,12 +4,15 @@ import type { H3Event } from "h3";
 import type {
   CmsAsset,
   CmsPhoto,
+  CmsPhotoset,
+  CmsPhotosetSummary,
   CmsPhotoSummary,
   CmsPost,
   CmsPostSummary,
   CmsSiteSettings,
   DirectusAsset,
   DirectusPhoto,
+  DirectusPhotoset,
   DirectusPost,
   DirectusSchema,
   DirectusSiteSettings,
@@ -59,6 +62,41 @@ const PHOTO_FIELDS = [
   "tags",
   {
     image: ["id", "title", "description", "width", "height", "filename_download"],
+  },
+];
+
+const PHOTOSET_FIELDS = [
+  "id",
+  "status",
+  "slug",
+  "title",
+  "description",
+  "published_at",
+  "tags",
+  {
+    cover_image: ["id", "title", "description", "width", "height", "filename_download"],
+  },
+  {
+    photos: [
+      "sort",
+      {
+        photos_id: [
+          "id",
+          "slug",
+          "title",
+          "description",
+          "published_at",
+          "taken_at",
+          "location",
+          "camera",
+          "lens",
+          "tags",
+          {
+            image: ["id", "title", "description", "width", "height", "filename_download"],
+          },
+        ],
+      },
+    ],
   },
 ];
 
@@ -358,3 +396,89 @@ export async function readDirectusPhotoBySlug(
     return null;
   }
 }
+
+export function normalizePhotosetSummary(
+  event: H3Event | undefined,
+  photoset: DirectusPhotoset
+): CmsPhotosetSummary {
+  const photos = (photoset.photos ?? [])
+    .filter((p) => p.photos_id && typeof p.photos_id === "object")
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+
+  return {
+    id: photoset.id,
+    slug: photoset.slug,
+    title: photoset.title,
+    description: photoset.description || null,
+    publishedAt: photoset.published_at || null,
+    tags: photoset.tags || [],
+    coverImage: normalizeAsset(event, photoset.cover_image, {
+      width: 1800,
+      quality: 84,
+      fit: "cover",
+    }),
+    photoCount: photos.length,
+  };
+}
+
+export function normalizePhotoset(
+  event: H3Event | undefined,
+  photoset: DirectusPhotoset
+): CmsPhotoset {
+  const photos = (photoset.photos ?? [])
+    .filter((p) => p.photos_id && typeof p.photos_id === "object")
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+    .map((p) => normalizePhotoSummary(event, p.photos_id as DirectusPhoto));
+
+  return {
+    ...normalizePhotosetSummary(event, photoset),
+    photos,
+  };
+}
+
+export async function readDirectusPhotosets(
+  event: H3Event | undefined,
+  options?: { limit?: number }
+) {
+  const client = getDirectusClient(event);
+  if (!client) return [];
+
+  try {
+    const photosets = await client.request(
+      readItems("photosets", {
+        fields: PHOTOSET_FIELDS,
+        filter: { status: { _eq: "published" } },
+        sort: ["-published_at", "-date_created"],
+        limit: options?.limit ?? -1,
+      })
+    );
+    return photosets.map((ps) => normalizePhotosetSummary(event, ps as DirectusPhotoset));
+  } catch {
+    return [];
+  }
+}
+
+export async function readDirectusPhotosetBySlug(
+  event: H3Event | undefined,
+  slug: string
+) {
+  const client = getDirectusClient(event);
+  if (!client) return null;
+
+  try {
+    const [photoset] = await client.request(
+      readItems("photosets", {
+        fields: PHOTOSET_FIELDS,
+        filter: {
+          status: { _eq: "published" },
+          slug: { _eq: slug },
+        },
+        limit: 1,
+      })
+    );
+    return photoset ? normalizePhotoset(event, photoset as DirectusPhotoset) : null;
+  } catch {
+    return null;
+  }
+}
+

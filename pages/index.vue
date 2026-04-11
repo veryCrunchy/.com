@@ -1303,7 +1303,7 @@
     align-items: center;
     gap: 1rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(113, 113, 122, 0.14);
+    border-bottom: 1px solid rgba(113, 113, 122, 0.18);
   }
 
   .ch-sub-num {
@@ -1311,7 +1311,7 @@
     font-size: 0.62rem;
     font-weight: 700;
     letter-spacing: 0.3em;
-    color: #3f3f46;
+    color: #52525b;
     white-space: nowrap;
   }
 
@@ -1321,39 +1321,39 @@
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: #52525b;
+    color: #71717a;
   }
 
   .ch-sub-lead {
     font-family: "Instrument Serif", serif;
     font-style: italic;
-    font-size: 0.9rem;
-    line-height: 1.7;
-    color: #52525b;
-    max-width: 65ch;
+    font-size: 1rem;
+    line-height: 1.75;
+    color: #6b7280;
+    max-width: 60ch;
   }
 
   /* ── Paragraph card (editorial text block) ───── */
   .para-card {
-    padding: 1.4rem 1.5rem;
-    border-radius: 0.85rem;
-    border: 1px solid rgba(113, 113, 122, 0.12);
-    background: rgba(12, 13, 18, 0.35);
+    padding: 1.5rem 1.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(113, 113, 122, 0.14);
+    background: rgba(12, 13, 18, 0.3);
     font-family: "Instrument Serif", serif;
     font-style: italic;
-    font-size: 0.9rem;
-    line-height: 1.85;
-    color: #52525b;
+    font-size: 1rem;
+    line-height: 1.875;
+    color: #6b7280;
   }
 
   .para-card::first-letter {
-    font-size: 2.6rem;
+    font-size: 3.5rem;
     font-weight: 400;
-    line-height: 0.8;
+    line-height: 0.72;
     float: left;
-    margin-right: 0.12rem;
-    margin-bottom: 0.05rem;
-    color: #3f3f46;
+    margin-right: 0.1rem;
+    margin-bottom: 0;
+    color: #71717a;
   }
 
   /* ── Stack chips ──────────────────────────────── */

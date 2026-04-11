@@ -35,35 +35,38 @@
 <template>
   <main class="photo-entry-page">
     <section class="photo-entry-shell">
-      <NuxtLink to="/photos" class="photo-entry-back">Back to photos</NuxtLink>
+      <NuxtLink to="/photos" class="photo-entry-back">← Photos</NuxtLink>
 
-      <header class="photo-entry-head">
+      <header
+        class="photo-entry-head"
+        data-directus-collection="photos"
+        :data-directus-item="photo.id"
+      >
         <div>
-          <p class="eyebrow">Directus Photo</p>
-          <h1>{{ photo.title }}</h1>
-          <p v-if="photo.description" class="photo-entry-description">{{ photo.description }}</p>
+          <h1 data-directus-field="title">{{ photo.title }}</h1>
+          <p v-if="photo.description" class="photo-entry-description" data-directus-field="description">{{ photo.description }}</p>
         </div>
         <div class="photo-entry-meta">
           <div>
             <span class="photo-entry-meta-label">Captured</span>
-            <strong>{{ formatDate(photo.takenAt || photo.publishedAt) }}</strong>
+            <strong data-directus-field="taken_at">{{ formatDate(photo.takenAt || photo.publishedAt) }}</strong>
           </div>
           <div v-if="photo.location">
             <span class="photo-entry-meta-label">Location</span>
-            <strong>{{ photo.location }}</strong>
+            <strong data-directus-field="location">{{ photo.location }}</strong>
           </div>
           <div v-if="photo.camera">
             <span class="photo-entry-meta-label">Camera</span>
-            <strong>{{ photo.camera }}</strong>
+            <strong data-directus-field="camera">{{ photo.camera }}</strong>
           </div>
           <div v-if="photo.lens">
             <span class="photo-entry-meta-label">Lens</span>
-            <strong>{{ photo.lens }}</strong>
+            <strong data-directus-field="lens">{{ photo.lens }}</strong>
           </div>
         </div>
       </header>
 
-      <div v-if="photo.image" class="photo-entry-frame">
+      <div v-if="photo.image" class="photo-entry-frame" data-directus-collection="photos" :data-directus-item="photo.id" data-directus-field="image">
         <img :src="photo.image.url" :alt="photo.image.alt || photo.title" />
       </div>
 

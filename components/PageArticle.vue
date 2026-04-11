@@ -426,10 +426,10 @@ const doubledMarquee = computed(() =>
 }
 
 .pa-desc {
-  font-size: 0.875rem;
-  line-height: 1.7;
-  color: #71717a;
-  max-width: 60ch;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: #6b7280;
+  max-width: 58ch;
   margin-top: 0.75rem;
 }
 

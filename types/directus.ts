@@ -64,10 +64,31 @@ export interface DirectusPhoto {
   tags?: string[] | null;
 }
 
+export interface DirectusPhotosetPhoto {
+  id: number;
+  photosets_id: number;
+  photos_id: string | DirectusPhoto;
+  sort: number | null;
+}
+
+export interface DirectusPhotoset {
+  id: number;
+  status?: string | null;
+  slug: string;
+  title: string;
+  description?: string | null;
+  cover_image?: string | DirectusAsset | null;
+  published_at?: string | null;
+  tags?: string[] | null;
+  photos?: DirectusPhotosetPhoto[] | null;
+}
+
 export interface DirectusSchema {
   site_settings: DirectusSiteSettings[];
   posts: DirectusPost[];
   photos: DirectusPhoto[];
+  photosets: DirectusPhotoset[];
+  photosets_photos: DirectusPhotosetPhoto[];
 }
 
 export interface CmsAsset {
@@ -117,6 +138,21 @@ export interface CmsPhotoSummary {
   lens: string | null;
   tags: string[];
   image: CmsAsset | null;
+}
+
+export interface CmsPhotosetSummary {
+  id: number;
+  slug: string;
+  title: string;
+  description: string | null;
+  publishedAt: string | null;
+  tags: string[];
+  coverImage: CmsAsset | null;
+  photoCount: number;
+}
+
+export interface CmsPhotoset extends CmsPhotosetSummary {
+  photos: CmsPhotoSummary[];
 }
 
 export interface CmsPhoto extends CmsPhotoSummary {}

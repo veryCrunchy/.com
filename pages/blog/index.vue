@@ -34,23 +34,8 @@
 <template>
   <main class="cms-page">
     <section class="cms-hero">
-      <p class="eyebrow">Directus Collection</p>
-      <div class="cms-hero-row">
-        <div>
-          <h1 class="cms-title">{{ site.postsLabel }}</h1>
-          <p class="cms-intro">
-            Long-form notes, build logs, essays, and project write-ups are all pulled from
-            Directus here.
-          </p>
-        </div>
-        <div class="cms-hero-card">
-          <span class="cms-hero-card-label">Editable From Directus</span>
-          <p class="cms-hero-card-copy">
-            Titles, excerpts, cover images, publishing dates, and the full body content all live
-            in your CMS.
-          </p>
-        </div>
-      </div>
+      <h1 class="cms-title">{{ site.postsLabel }}</h1>
+      <p class="cms-intro">{{ site.siteDescription }}</p>
     </section>
 
     <section v-if="posts.length" class="post-grid">
@@ -92,10 +77,10 @@
 <style scoped>
   .cms-page {
     min-height: 100dvh;
-    padding: 6.75rem 1.25rem 4rem;
+    padding: 7rem 1.25rem 6rem;
     background:
-      radial-gradient(circle at top, rgba(59, 130, 246, 0.14), transparent 42%),
-      linear-gradient(180deg, #07090c 0%, #0b0d11 35%, #090b0f 100%);
+      radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.07), transparent 55%),
+      linear-gradient(180deg, #07090c 0%, #0b0d11 100%);
     color: #e2e8f0;
   }
 
@@ -107,13 +92,9 @@
   }
 
   .cms-hero {
-    margin-bottom: 2rem;
-  }
-
-  .cms-hero-row {
-    display: grid;
-    gap: 1rem;
-    align-items: end;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   }
 
   .cms-title {
@@ -122,60 +103,39 @@
     line-height: 0.95;
     letter-spacing: -0.05em;
     color: #f8fafc;
-    margin-top: 0.65rem;
   }
 
   .cms-intro {
-    max-width: 40rem;
-    margin-top: 1rem;
-    font-size: 1rem;
-    line-height: 1.8;
-    color: #94a3b8;
-  }
-
-  .cms-hero-card {
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    border-radius: 1.25rem;
-    background: rgba(15, 23, 42, 0.46);
-    padding: 1rem 1.05rem;
-    box-shadow: 0 18px 40px rgba(2, 6, 23, 0.22);
-  }
-
-  .cms-hero-card-label {
-    display: inline-block;
-    font-size: 0.72rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #cbd5e1;
-  }
-
-  .cms-hero-card-copy {
-    margin-top: 0.75rem;
-    line-height: 1.7;
-    color: #94a3b8;
+    max-width: 42rem;
+    margin-top: 1.1rem;
+    font-family: "Instrument Serif", serif;
+    font-style: italic;
+    font-size: 1.1rem;
+    line-height: 1.75;
+    color: #6b7280;
   }
 
   .post-grid {
     display: grid;
-    gap: 1.1rem;
-    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
   }
 
   .post-card {
     overflow: hidden;
-    border-radius: 1.4rem;
-    border: 1px solid rgba(148, 163, 184, 0.16);
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.75), rgba(9, 12, 18, 0.95));
-    box-shadow: 0 24px 44px rgba(2, 6, 23, 0.26);
+    border-radius: 1.1rem;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(11, 14, 22, 0.7);
+    transition: border-color 0.2s ease, transform 0.2s ease;
   }
 
   .post-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(191, 219, 254, 0.34);
+    transform: translateY(-2px);
+    border-color: rgba(148, 163, 184, 0.28);
   }
 
   .post-card-media {
-    aspect-ratio: 1.28;
+    aspect-ratio: 16 / 9;
     overflow: hidden;
     background: rgba(15, 23, 42, 0.7);
   }
@@ -184,54 +144,61 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.4s ease;
+  }
+
+  .post-card:hover .post-card-media img {
+    transform: scale(1.03);
   }
 
   .post-card-body {
     display: grid;
-    gap: 0.85rem;
-    padding: 1.2rem;
+    gap: 0.7rem;
+    padding: 1.25rem;
   }
 
   .post-card-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.55rem 1rem;
-    font-size: 0.78rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: #94a3b8;
+    align-items: center;
+    gap: 0;
+    font-size: 0.73rem;
+    letter-spacing: 0.04em;
+    color: #4b5563;
+  }
+
+  .post-card-meta span + span::before {
+    content: "·";
+    margin: 0 0.45rem;
+    opacity: 0.6;
   }
 
   .post-card h2,
   .cms-empty h2 {
     font-family: "Syne", sans-serif;
-    font-size: 1.45rem;
-    line-height: 1.08;
+    font-size: 1.3rem;
+    line-height: 1.12;
     letter-spacing: -0.03em;
-    color: #f8fafc;
+    color: #f1f5f9;
   }
 
   .post-card p,
   .cms-empty p {
-    line-height: 1.8;
-    color: #a5b4fc;
+    font-size: 0.9rem;
+    line-height: 1.75;
+    color: #6b7280;
   }
 
   .cms-empty {
-    border-radius: 1.5rem;
-    border: 1px dashed rgba(148, 163, 184, 0.22);
-    background: rgba(15, 23, 42, 0.32);
-    padding: 1.5rem;
+    border-radius: 1rem;
+    border: 1px dashed rgba(148, 163, 184, 0.18);
+    background: rgba(11, 14, 22, 0.5);
+    padding: 2rem;
   }
 
   @media (min-width: 900px) {
     .cms-page {
       padding-inline: 2rem;
-    }
-
-    .cms-hero-row {
-      grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.72fr);
-      gap: 1.6rem;
     }
   }
 </style>

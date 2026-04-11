@@ -34,12 +34,8 @@
 <template>
   <main class="photo-page">
     <section class="photo-hero">
-      <p class="eyebrow">Directus Gallery</p>
-      <h1>{{ site.photosLabel }}</h1>
-      <p>
-        A living image archive for finished shots, experiments, travel frames, and whatever else
-        deserves a permanent place.
-      </p>
+      <h1 data-directus-collection="site_settings" data-directus-item="1" data-directus-field="photos_label">{{ site.photosLabel }}</h1>
+      <p>A living image archive for finished shots, experiments, travel frames, and whatever else deserves a permanent place.</p>
     </section>
 
     <section v-if="photos.length" class="photo-grid">

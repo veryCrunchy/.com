@@ -26,6 +26,13 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
 a {
   text-decoration: none;
   color: inherit;
@@ -43,24 +50,26 @@ a {
 
 /* ── Utility classes shared across all pages ────────── */
 .eyebrow {
-  font-size: 0.7rem;
-  letter-spacing: 0.22em;
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: #52525b;
   font-weight: 500;
 }
 
 .story-link {
-  display: block;
-  padding: 0.45rem 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
-  color: #cbd5e1;
-  transition: color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(113, 113, 122, 0.16);
+  color: #94a3b8;
+  font-size: 0.9rem;
+  transition: color 0.15s;
 }
 
 .story-link:hover {
-  color: #f1f5f9;
-  border-color: rgba(219, 234, 254, 0.6);
+  color: #e4e4e7;
 }
 
 .story-link:last-child {
@@ -72,4 +81,20 @@ a {
   outline: 2px solid rgba(142, 168, 195, 0.7);
   outline-offset: 3px;
   border-radius: 4px;
+}
+
+/* ── Directus Visual Editing ────────────────────────── */
+/* Only active when the site is loaded inside the Directus Visual Editor iframe */
+
+[data-directus-visual-editing] [data-directus-field] {
+  cursor: pointer;
+  outline: 1px dashed rgba(102, 68, 255, 0.28);
+  outline-offset: 2px;
+  border-radius: 2px;
+  transition: outline-color 0.12s ease;
+}
+
+[data-directus-visual-editing] [data-directus-field]:hover {
+  outline: 2px solid rgba(102, 68, 255, 0.85);
+  background: rgba(102, 68, 255, 0.04);
 }

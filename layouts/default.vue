@@ -16,24 +16,35 @@
 <template>
   <div class="min-h-dvh">
     <nav class="site-nav">
-      <div class="site-nav-inner">
+      <div
+        class="site-nav-inner"
+        data-directus-collection="site_settings"
+        data-directus-item="1"
+      >
         <NuxtLink to="/" class="site-nav-logo">
           <span class="logo-mark">vc</span>
-          <span class="logo-label">{{ site.siteName }}</span>
+          <span class="logo-label" data-directus-field="site_name">{{ site.siteName }}</span>
         </NuxtLink>
         <div class="site-nav-links">
           <NuxtLink to="/" class="nav-link" :class="{ 'is-active': route.path === '/' }">
             Home
           </NuxtLink>
           <NuxtLink to="/blog" class="nav-link" :class="{ 'is-active': isActive('/blog') }">
-            {{ site.postsLabel }}
+            <span data-directus-field="posts_label">{{ site.postsLabel }}</span>
           </NuxtLink>
           <NuxtLink
             to="/photos"
             class="nav-link"
             :class="{ 'is-active': isActive('/photos') }"
           >
-            {{ site.photosLabel }}
+            <span data-directus-field="photos_label">{{ site.photosLabel }}</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/photosets"
+            class="nav-link"
+            :class="{ 'is-active': isActive('/photosets') }"
+          >
+            Sets
           </NuxtLink>
           <a
             :href="site.githubUrl"
@@ -48,6 +59,7 @@
             target="_blank"
             rel="noopener"
             class="nav-cta"
+            data-directus-field="nav_cta_label"
           >
             {{ site.navCtaLabel }}
           </a>
@@ -65,10 +77,10 @@
     left: 0;
     right: 0;
     z-index: 40;
-    border-bottom: 1px solid rgba(113, 113, 122, 0.28);
-    background: rgba(11, 13, 17, 0.72);
-    backdrop-filter: blur(14px) saturate(120%);
-    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    border-bottom: 1px solid rgba(113, 113, 122, 0.2);
+    background: rgba(9, 11, 15, 0.8);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
   }
 
   .site-nav-inner {
@@ -89,30 +101,27 @@
   .site-nav-logo {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.55rem;
     text-decoration: none;
     flex-shrink: 0;
   }
 
   .logo-mark {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    background: linear-gradient(135deg, #c9d1d9, #8ea8c3);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    border: 1px solid rgba(142, 168, 195, 0.35);
-    border-radius: 5px;
-    padding: 0.2rem 0.45rem;
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 4px;
+    padding: 0.18rem 0.42rem;
     line-height: 1;
   }
 
   .logo-label {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: 500;
-    color: #cbd5e1;
+    color: #94a3b8;
     letter-spacing: -0.01em;
   }
 
@@ -123,44 +132,41 @@
   .site-nav-links {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0;
   }
 
   .nav-link {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 400;
-    color: #94a3b8;
-    padding: 0.35rem 0.7rem;
-    border-radius: 6px;
+    color: #52525b;
+    padding: 0.35rem 0.65rem;
+    border-radius: 5px;
     text-decoration: none;
-    transition: color 0.15s, background 0.15s;
+    transition: color 0.15s;
   }
 
   .nav-link:hover {
-    color: #e2e8f0;
-    background: rgba(148, 163, 184, 0.08);
+    color: #a1a1aa;
   }
 
   .nav-link.is-active {
-    color: #e2e8f0;
-    background: rgba(148, 163, 184, 0.11);
+    color: #d4d4d8;
   }
 
   .nav-cta {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 500;
-    color: #c9d1d9;
-    border: 1px solid rgba(142, 168, 195, 0.38);
-    border-radius: 6px;
-    padding: 0.3rem 0.8rem;
+    color: #6b7280;
+    border: 1px solid rgba(113, 113, 122, 0.3);
+    border-radius: 5px;
+    padding: 0.28rem 0.7rem;
     text-decoration: none;
-    margin-left: 0.35rem;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    margin-left: 0.5rem;
+    transition: color 0.15s, border-color 0.15s;
   }
 
   .nav-cta:hover {
-    color: #f1f5f9;
-    border-color: rgba(219, 234, 254, 0.6);
-    background: rgba(142, 168, 195, 0.08);
+    color: #d4d4d8;
+    border-color: rgba(148, 163, 184, 0.45);
   }
 </style>

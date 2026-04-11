@@ -212,9 +212,9 @@ const props = withDefaults(defineProps<{
 
 /* ── Description ───────────────────────────── */
 .ac-desc {
-  font-size: 0.875rem;
-  line-height: 1.65;
-  color: #a1a1aa;
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: #94a3b8;
   flex: 1;
 }
 
@@ -259,7 +259,7 @@ const props = withDefaults(defineProps<{
   font-size: 0.65rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #3f3f46;
+  color: #52525b;
 }
 
 .ac-live {
