@@ -627,7 +627,7 @@
       watermark="WORK"
       title="Personal Projects"
       tagline="Shipping things that matter."
-      description="Side projects, tools, and experiments — built and maintained by me alone. No teams, no budgets, just an idea and the time to make it real."
+      description="Side projects, tools, and experiments — built and maintained by me. No teams, no budgets, just an idea and the time to make it real."
       theme="white"
       :marquee-items="['Better stats.fm', 'Activity Card', 'verycrunchy.com', 'Photo Portfolio', 'Built in Public', 'TypeScript', 'Vue · Nuxt · Go']"
     >
@@ -642,7 +642,7 @@
         :wide="true"
         eyebrow="Music · Web App"
         title="Better stats.fm"
-        description="Your stats.fm history re-ranked by a custom weighted algorithm — balances stream count with total listening time. Find out what you've <em>actually</em> listened to most, not just what shuffled past."
+        description="stats.fm tracks what you play but weights by stream count. Something on repeat for a week can rank below something you hit once. I built this to re-rank by actual listening time — your real taste, not what the shuffle decided."
         :tags="[
           { label: 'Nuxt 3' },
           { label: 'stats.fm API' },
@@ -660,7 +660,7 @@
       <ArticleCard
         eyebrow="Discord · Live"
         title="Activity Card"
-        description="Real-time Discord activity — current game, Spotify track, or online status. Powered by Lanyard WebSockets. Always live, zero polling."
+        description="Shows what I'm doing on Discord in real time — game, Spotify track, whatever's running. Powered by Lanyard over WebSockets so it updates the moment something changes, no polling."
         :tags="[
           { label: 'Lanyard API' },
           { label: 'WebSockets' },
@@ -684,7 +684,7 @@
       <ArticleCard
         eyebrow="This Site"
         title="verycrunchy.com"
-        description="Custom GSAP cursor engine — tracks, snaps, and morphs to each element. No UI library for the interaction logic, built entirely from scratch."
+        description="Everything you're interacting with right now. The cursor snapping, the morphing, the spring physics — all hand-built with GSAP tickers and raw pointer events. No cursor library, no shortcuts."
         :tags="[
           { label: 'GSAP' },
           { label: 'Nuxt 3' },
@@ -709,7 +709,7 @@
         :wide="true"
         eyebrow="Live · Photos"
         title="Photo Portfolio"
-        description="A first-person photo journal. Real places, real moments. Editorial grid layouts and behind-the-shot process notes. No stock imagery, no filters that don't belong."
+        description="A photo journal that actually documents shoots. Not just a grid of nice images — each one has context, location, what I was going for. Shot on Fujifilm X-T5. No stock, no borrowed vision."
         :tags="[
           { label: 'Photography' },
           { label: 'Editorial design' },
@@ -725,8 +725,16 @@
 
       <template v-for="ep in chapterExtras('work', [1,2,3,4])" :key="ep.id">
         <ArticleCard
-          v-bind="cmsCardProps(ep.id)"
+          :wide="ep.wide"
+          :eyebrow="ep.eyebrow ?? undefined"
+          :title="ep.title"
+          :description="ep.description ?? undefined"
+          :tags="ep.tags.length ? ep.tags : undefined"
+          :link="ep.linkHref ? { href: ep.linkHref, label: ep.linkLabel || 'Open →', ...(ep.linkTarget ? { target: ep.linkTarget } : {}), ...(ep.linkVariant ? { variant: ep.linkVariant as 'default' | 'green' } : {}) } : undefined"
+          :accent-color="(ep.accentColor as 'blue' | 'orange' | 'purple' | 'green' | 'pink' | 'none') || 'none'"
           theme="dark"
+          :footer="ep.footerLabel || ep.footerLive ? { label: ep.footerLabel || '', live: ep.footerLive } : undefined"
+          :status="ep.statusLabel ?? undefined"
           :data-directus-collection="'projects'"
           :data-directus-item="ep.id"
         />
@@ -742,7 +750,7 @@
       title="Obiente"
       title-href="https://obiente.com"
       tagline="Built for People, Not Profit."
-      description="Open Source SaaS with a mission to serve the common good. Every project we ship is AGPL-3.0 licensed, free to self-host, and built to give users full control over their own data. Powered by community contributors, built entirely in the open."
+      description="Open Source SaaS with a mission that isn't profit. Everything we ship is AGPL-3.0 licensed, free to self-host, and built to give users full control over their own data."
       theme="green"
       :marquee-items="['Open Source', 'AGPL-3.0', 'Built for People', 'Not for Profit', 'Your Data, Your Control', 'Community Powered', 'Self-Hostable']"
       :footer-links="[
@@ -761,7 +769,7 @@
         :wide="true"
         eyebrow="Infrastructure · Go"
         title="Obiente Cloud"
-        description="A distributed Platform-as-a-Service for deploying and managing apps across multiple nodes. Multi-node deployments, auto-scaling, dynamic routing via Traefik, integrated Zitadel auth, Prometheus & Grafana monitoring. Built for homelabbers, teams, and production IaaS."
+        description="A self-hostable PaaS for deploying apps across multiple nodes. Multi-node deploys, auto-scaling, Traefik routing, Zitadel auth, Prometheus + Grafana. Built because I needed it for my own infrastructure and nothing else fit."
         :tags="[
           { label: 'Go', variant: 'blue' },
           { label: 'Vue 3' },
@@ -773,6 +781,9 @@
         accent-color="blue"
         theme="ob"
         :footer="{ label: 'Active development', live: true }"
+        v-bind="projCardProps(5)"
+        data-directus-collection="projects"
+        data-directus-item="5"
       />
 
       <div class="ch-sub-rule">
@@ -784,7 +795,7 @@
       <ArticleCard
         eyebrow="Monitoring · Rust"
         title="Uppe."
-        description="Peer-to-peer distributed uptime monitoring. Nodes monitor each other's services, sign results cryptographically, and publish a global uptime consensus. Monitoring that doesn't let you down."
+        description="Uptime monitoring where the nodes watch each other. Results are cryptographically signed and consensus is published globally. If the monitor goes down, you still know. AGPL-3.0."
         :tags="[
           { label: 'Rust', variant: 'rust' },
           { label: 'P2P · GossipSub' },
@@ -794,12 +805,15 @@
         accent-color="orange"
         theme="ob"
         :footer="{ label: '9 stars · AGPL-3.0' }"
+        v-bind="projCardProps(6)"
+        data-directus-collection="projects"
+        data-directus-item="6"
       />
 
       <ArticleCard
         eyebrow="Email Security"
         title="DMARC"
-        description="Analyze and monitor DMARC aggregate reports. Detects email spoofing, enforces domain policies, sends real-time alerts, and gives you complete data ownership. Free for individuals and small teams."
+        description="Parse and visualise DMARC aggregate reports. Shows who is sending email on behalf of your domain and whether your policy is actually working. Free for individuals and small teams, you own the data."
         :tags="[
           { label: 'SPF & DKIM' },
           { label: 'Real-time alerts' },
@@ -809,7 +823,27 @@
         accent-color="purple"
         theme="ob"
         :footer="{ label: 'Alpha · Free tier' }"
+        v-bind="projCardProps(7)"
+        data-directus-collection="projects"
+        data-directus-item="7"
       />
+
+      <template v-for="ep in chapterExtras('obiente', [5,6,7])" :key="ep.id">
+        <ArticleCard
+          :wide="ep.wide"
+          :eyebrow="ep.eyebrow ?? undefined"
+          :title="ep.title"
+          :description="ep.description ?? undefined"
+          :tags="ep.tags.length ? ep.tags : undefined"
+          :link="ep.linkHref ? { href: ep.linkHref, label: ep.linkLabel || 'Open →', ...(ep.linkTarget ? { target: ep.linkTarget } : {}), ...(ep.linkVariant ? { variant: ep.linkVariant as 'default' | 'green' } : {}) } : undefined"
+          :accent-color="(ep.accentColor as 'blue' | 'orange' | 'purple' | 'green' | 'pink' | 'none') || 'none'"
+          theme="ob"
+          :footer="ep.footerLabel || ep.footerLive ? { label: ep.footerLabel || '', live: ep.footerLive } : undefined"
+          :status="ep.statusLabel ?? undefined"
+          :data-directus-collection="'projects'"
+          :data-directus-item="ep.id"
+        />
+      </template>
     </PageArticle>
 
     <!-- ── Ch. 03: Visual Journal ── -->
@@ -818,7 +852,7 @@
       watermark="VISUALS"
       title="Visual Journal"
       tagline="Real places. Real moments. No filters that don't belong."
-      description="A first-person photo journal — real places, real light, real seconds worth keeping. Fujifilm X-T5 + XF 16-80mm. No stock imagery, no borrowed vision."
+      description="A first-person photo journal. Real places, real light, real seconds worth keeping. Fujifilm X-T5 + XF 16-80mm. Shot what I see, not what looks good on a feed."
       theme="pink"
       :marquee-items="['First-Person Photography', 'Editorial Grid', 'Behind the Shot', 'No Stock Imagery', 'Real Moments', 'Fujifilm X-T5', 'Film + Digital']"
     >
@@ -832,7 +866,7 @@
         :wide="true"
         eyebrow="Live · Photos"
         title="Photo Journal"
-        description="Curated editorial photo grids. Shoots documented front-to-back — location context and what the shot was going for. Every image tells its own story."
+        description="The same journal as the photo portfolio — every shoot documented front to back, location context, what the shot was going for. Shot on Fujifilm X-T5."
         :tags="[
           { label: 'Photography' },
           { label: 'Editorial Design' },
@@ -842,6 +876,9 @@
         :link="{ href: '/photos', label: 'Browse →' }"
         accent-color="pink"
         theme="darker"
+        v-bind="projCardProps(8)"
+        data-directus-collection="projects"
+        data-directus-item="8"
       />
       <div class="ch-sub-rule">
         <span class="ch-sub-num">3.2</span>
@@ -851,14 +888,34 @@
       <ArticleCard
         eyebrow="Process · Gear"
         title="Kit & Workflow"
-        description="Fujifilm X-T5 + XF 16-80mm f/4 R OIS WR. Lightroom for tones. The gear matters less than what you choose to point it at."
+        description="Fujifilm X-T5. XF 16-80mm f/4 R OIS WR. Lightroom for tone. Gear matters less than what you choose to point it at."
         :tags="[
           { label: 'Fujifilm X-T5' },
           { label: 'XF 16-80mm f/4' },
           { label: 'Lightroom' },
         ]"
         theme="darker"
+        v-bind="projCardProps(9)"
+        data-directus-collection="projects"
+        data-directus-item="9"
       />
+
+      <template v-for="ep in chapterExtras('visual', [8,9])" :key="ep.id">
+        <ArticleCard
+          :wide="ep.wide"
+          :eyebrow="ep.eyebrow ?? undefined"
+          :title="ep.title"
+          :description="ep.description ?? undefined"
+          :tags="ep.tags.length ? ep.tags : undefined"
+          :link="ep.linkHref ? { href: ep.linkHref, label: ep.linkLabel || 'Open →', ...(ep.linkTarget ? { target: ep.linkTarget } : {}), ...(ep.linkVariant ? { variant: ep.linkVariant as 'default' | 'green' } : {}) } : undefined"
+          :accent-color="(ep.accentColor as 'blue' | 'orange' | 'purple' | 'green' | 'pink' | 'none') || 'none'"
+          theme="darker"
+          :footer="ep.footerLabel || ep.footerLive ? { label: ep.footerLabel || '', live: ep.footerLive } : undefined"
+          :status="ep.statusLabel ?? undefined"
+          :data-directus-collection="'projects'"
+          :data-directus-item="ep.id"
+        />
+      </template>
     </PageArticle>
 
     <!-- ── Ch. 04: Listening ── -->
@@ -868,7 +925,7 @@
       watermark="MUSIC"
       title="Listening"
       tagline="Music is the measure."
-      description="What plays while I code. Albums, artists, and tracks tracked by total listening time — not just stream count. A weighted view of taste, not the algorithm's."
+      description="What plays while I'm working. Albums, artists, and tracks tracked by total listening time — not stream count. A clearer picture of taste than any algorithm will give you."
       theme="purple"
       :marquee-items="['stats.fm', 'Weighted Scoring', '250+ Artists Tracked', 'Always Listening', 'Stream History', 'Custom Algorithm', 'Listening Time']"
       :footer-links="[
@@ -886,7 +943,7 @@
         :wide="true"
         eyebrow="Music · Web App"
         title="Better stats.fm"
-        description="stats.fm re-ranked by a custom weighted algorithm. Balances stream count against total listening time to surface what you've genuinely been deep in — not what happened to shuffle past."
+        description="The same weighted re-ranking from the personal projects section — surfaced here because the listening chapter is where it actually makes sense in context."
         :tags="[
           { label: 'Nuxt 3' },
           { label: 'stats.fm API' },
@@ -897,6 +954,9 @@
         accent-color="purple"
         theme="dark"
         :footer="{ label: 'Always up to date', live: true }"
+        v-bind="projCardProps(10)"
+        data-directus-collection="projects"
+        data-directus-item="10"
       />
 
       <div class="ch-sub-rule">
@@ -908,7 +968,7 @@
       <ArticleCard
         eyebrow="Currently Into"
         title="Taste Profile"
-        description="Heavy rotation: ambient, math rock, lo-fi hip hop, and occasional hyperpop detours. Favourite artists tend to produce both the most and the least popular music in my library at the same time."
+        description="Ambient when deep in something. Math rock between tasks. Lo-fi when writing. Hyperpop when the build is broken and I've stopped caring. Make of that what you will."
         :tags="[
           { label: 'Ambient' },
           { label: 'Math Rock' },
@@ -916,9 +976,29 @@
           { label: 'Hyperpop', variant: 'purple' },
         ]"
         theme="dark"
+        v-bind="projCardProps(11)"
+        data-directus-collection="projects"
+        data-directus-item="11"
       />
 
       <p class="para-card">Listening habits say a lot about the headspace you're in. An algorithm knows what you played; this tool knows what you actually heard. There's a difference — and it shows when you trace your own taste over time.</p>
+
+      <template v-for="ep in chapterExtras('music', [10,11])" :key="ep.id">
+        <ArticleCard
+          :wide="ep.wide"
+          :eyebrow="ep.eyebrow ?? undefined"
+          :title="ep.title"
+          :description="ep.description ?? undefined"
+          :tags="ep.tags.length ? ep.tags : undefined"
+          :link="ep.linkHref ? { href: ep.linkHref, label: ep.linkLabel || 'Open →', ...(ep.linkTarget ? { target: ep.linkTarget } : {}), ...(ep.linkVariant ? { variant: ep.linkVariant as 'default' | 'green' } : {}) } : undefined"
+          :accent-color="(ep.accentColor as 'blue' | 'orange' | 'purple' | 'green' | 'pink' | 'none') || 'none'"
+          theme="dark"
+          :footer="ep.footerLabel || ep.footerLive ? { label: ep.footerLabel || '', live: ep.footerLive } : undefined"
+          :status="ep.statusLabel ?? undefined"
+          :data-directus-collection="'projects'"
+          :data-directus-item="ep.id"
+        />
+      </template>
 
     </PageArticle>
 

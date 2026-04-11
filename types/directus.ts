@@ -11,9 +11,9 @@ export const DEFAULT_CMS_SITE_SETTINGS: CmsSiteSettings = {
   navCtaUrl: "https://ko-fi.com/verycrunchy",
   postsLabel: "Blog",
   photosLabel: "Photos",
-  heroTagline: "Fullstack developer \u2014 web apps, developer tools, and interactive experiences.",
-  heroDescription: "I care about clean code, fast interfaces, and products that feel good to use. Self-taught, ship-first, always building something.",
-  availabilityLabel: "Available for freelance work",
+  heroTagline: "Fullstack developer — I build web apps, developer tools, and things I want to exist.",
+  heroDescription: "Self-taught. I care more about shipping something real than getting the architecture perfect on the first pass. Always building, usually in public.",
+  availabilityLabel: "Open to freelance work",
   availabilityActive: true,
   primaryCtaLabel: "View my GitHub \u2192",
   primaryCtaUrl: "https://github.com/verycrunchy",
@@ -90,7 +90,7 @@ export interface DirectusProject {
   eyebrow?: string | null;
   title: string;
   description?: string | null;
-  tags?: Array<{ label: string; variant?: string }> | null;
+  tags?: Array<{ label: string; variant?: 'blue' | 'rust' | 'green' | 'purple' | 'orange' }> | null;
   link_href?: string | null;
   link_label?: string | null;
   link_target?: string | null;
@@ -168,7 +168,7 @@ export interface CmsProject {
   eyebrow: string | null;
   title: string;
   description: string | null;
-  tags: Array<{ label: string; variant?: string }>;
+  tags: Array<{ label: string; variant?: 'blue' | 'rust' | 'green' | 'purple' | 'orange' }>;
   linkHref: string | null;
   linkLabel: string | null;
   linkTarget: string | null;
