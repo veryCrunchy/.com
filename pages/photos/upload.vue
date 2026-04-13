@@ -1,6 +1,17 @@
 <script setup lang="ts">
   import type { CmsPhotoSummary } from "~/types/directus";
 
+  definePageMeta({
+    middleware: [
+      () => {
+        // This page is dev-only. Redirect to home in any other environment.
+        if (import.meta.env.MODE !== "development") {
+          return navigateTo("/", { replace: true });
+        }
+      },
+    ],
+  });
+
   type IngestPhoto = {
     sourcePath: string;
     filename?: string;
@@ -43,6 +54,7 @@
   const outputLog = ref("");
   const suggestionSource = ref<"heuristic" | "ai" | null>(null);
   const errorMessage = ref("");
+  const completedAction = ref<"prepare" | "suggest" | "upload" | null>(null);
   const livePhotos = ref<CmsPhotoSummary[]>([]);
   const livePhotosLoaded = ref(false);
   const livePhotosLoading = ref(false);
@@ -53,6 +65,54 @@
   const motionPhotoCount = computed(
     () => manifest.value?.photos?.filter((photo) => (photo.motionFrameSourcePaths || []).length > 0).length || 0
   );
+  const statusMessage = computed(() => {
+    if (busyAction.value === "prepare") {
+      return "Preparing manifest and inspecting source files...";
+    }
+
+    if (busyAction.value === "suggest") {
+      return "Generating metadata suggestions for the current manifest...";
+    }
+
+    if (busyAction.value === "upload") {
+      return "Uploading files and updating Directus records...";
+    }
+
+    if (errorMessage.value) {
+      return errorMessage.value;
+    }
+
+    if (completedAction.value === "prepare") {
+      return "Manifest prepared. Review the cards, then suggest metadata or upload.";
+    }
+
+    if (completedAction.value === "suggest") {
+      return suggestionSource.value === "ai"
+        ? "AI suggestions applied. Review the copy before upload."
+        : "Heuristic suggestions applied. Review the copy before upload.";
+    }
+
+    if (completedAction.value === "upload") {
+      return "Upload finished. Check the log below for validation and Directus results.";
+    }
+
+    return "";
+  });
+  const statusTone = computed(() => {
+    if (busyAction.value) {
+      return "working";
+    }
+
+    if (errorMessage.value) {
+      return "error";
+    }
+
+    if (completedAction.value) {
+      return "success";
+    }
+
+    return "idle";
+  });
 
   useSeoMeta({
     title: "Photo Ingest Studio | veryCrunchy",
@@ -205,6 +265,7 @@
     busyAction.value = "prepare";
     errorMessage.value = "";
     suggestionSource.value = null;
+    completedAction.value = null;
 
     try {
       const response = await $fetch<{ manifestPath: string; manifest: IngestManifest; output: string }>("/api/cms/photo-ingest/prepare", {
@@ -215,6 +276,7 @@
       manifestPath.value = response.manifestPath;
       manifest.value = normalizeManifestShape(response.manifest);
       outputLog.value = response.output;
+      completedAction.value = "prepare";
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : "Failed to prepare manifest.";
     } finally {
@@ -227,6 +289,7 @@
 
     busyAction.value = "suggest";
     errorMessage.value = "";
+    completedAction.value = null;
 
     try {
       const response = await $fetch<{ manifest: IngestManifest; source: "heuristic" | "ai" }>("/api/cms/photo-ingest/suggest", {
@@ -239,6 +302,7 @@
       outputLog.value = response.source === "ai"
         ? "Applied AI metadata suggestions."
         : "Applied heuristic metadata suggestions.";
+      completedAction.value = "suggest";
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : "Failed to suggest metadata.";
     } finally {
@@ -251,6 +315,7 @@
 
     busyAction.value = "upload";
     errorMessage.value = "";
+    completedAction.value = null;
 
     try {
       const response = await $fetch<{ manifestPath: string; validation: string; output: string }>("/api/cms/photo-ingest/upload", {
@@ -260,6 +325,7 @@
 
       manifestPath.value = response.manifestPath;
       outputLog.value = [response.validation, response.output].filter(Boolean).join("\n\n");
+      completedAction.value = "upload";
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : "Upload failed.";
     } finally {
@@ -305,6 +371,10 @@
           <button type="button" class="ingest-button" :disabled="!manifest || busyAction !== null" @click="uploadManifest">
             {{ busyAction === "upload" ? "Uploading…" : "Upload batch" }}
           </button>
+        </div>
+        <div v-if="statusMessage" class="ingest-status" :class="`ingest-status--${statusTone}`" aria-live="polite">
+          <span v-if="busyAction" class="ingest-status-spinner" aria-hidden="true" />
+          <span class="ingest-status-copy">{{ statusMessage }}</span>
         </div>
         <p class="ingest-note">This is intentionally local-first. It uses the same server environment and Directus token as the existing ingest scripts.</p>
         <p class="ingest-note">Windows drive paths like <strong>C:\Users\...</strong> are converted to WSL mount paths automatically during prepare and upload.</p>
@@ -677,6 +747,49 @@
     line-height: 1.7;
   }
 
+  .ingest-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: rgba(4, 6, 7, 0.7);
+  }
+
+  .ingest-status--working {
+    border-color: rgba(96, 165, 250, 0.24);
+    background: rgba(30, 41, 59, 0.82);
+    color: #dbeafe;
+  }
+
+  .ingest-status--success {
+    border-color: rgba(74, 222, 128, 0.24);
+    background: rgba(20, 83, 45, 0.28);
+    color: #dcfce7;
+  }
+
+  .ingest-status--error {
+    border-color: rgba(248, 113, 113, 0.24);
+    background: rgba(127, 29, 29, 0.26);
+    color: #fecaca;
+  }
+
+  .ingest-status-spinner {
+    width: 0.95rem;
+    height: 0.95rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    border: 2px solid rgba(191, 219, 254, 0.24);
+    border-top-color: currentColor;
+    animation: ingest-spin 0.7s linear infinite;
+  }
+
+  .ingest-status-copy {
+    line-height: 1.55;
+  }
+
   .ingest-live-tools {
     display: flex;
     align-items: center;
@@ -880,6 +993,12 @@
 
     .ingest-card-actions {
       justify-content: start;
+    }
+  }
+
+  @keyframes ingest-spin {
+    to {
+      transform: rotate(360deg);
     }
   }
 </style>
