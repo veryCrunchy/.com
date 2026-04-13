@@ -83,6 +83,25 @@
     return width > height ? "Landscape frame" : "Portrait frame";
   });
 
+  const locationLabel = computed(() => {
+    const locationMeta = photo.value.locationMeta;
+
+    if (locationMeta?.city && locationMeta?.country) {
+      return `${locationMeta.city}, ${locationMeta.country}`;
+    }
+
+    return locationMeta?.title || photo.value.location || null;
+  });
+
+  const sequenceLabel = computed(() => {
+    if (!photo.value.hasMotion) {
+      return "Single frame";
+    }
+
+    const count = photo.value.motionFrameCount || 0;
+    return `Moment sequence · ${count} motion frame${count !== 1 ? "s" : ""}`;
+  });
+
   useSeoMeta({
     title: computed(() => `${photo.value.title || "Photo"} | Photos | veryCrunchy`),
     description: computed(
@@ -152,6 +171,11 @@
             <span class="photo-entry-kicker">{{ setPending ? "Loading context…" : setContext ? "Inside a photoset" : "Single frame" }}</span>
             <h1 data-directus-field="title">{{ photo.title }}</h1>
             <p v-if="photo.description" class="photo-entry-description" data-directus-field="description">{{ photo.description }}</p>
+            <div class="photo-entry-summary-row">
+              <span class="photo-entry-summary-pill">{{ formatDate(photo.takenAt || photo.publishedAt) }}</span>
+              <span v-if="locationLabel" class="photo-entry-summary-pill">{{ locationLabel }}</span>
+              <span class="photo-entry-summary-pill">{{ sequenceLabel }}</span>
+            </div>
           </div>
           <div class="photo-entry-meta">
             <div>
@@ -389,6 +413,24 @@
     margin-top: 1rem;
     line-height: 1.85;
     color: #cbd5e1;
+  }
+
+  .photo-entry-summary-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 1rem;
+  }
+
+  .photo-entry-summary-pill {
+    border-radius: 999px;
+    border: 1px solid rgba(74, 222, 128, 0.22);
+    background: rgba(34, 197, 94, 0.12);
+    color: #d1fae5;
+    padding: 0.34rem 0.72rem;
+    font-size: 0.76rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
   .photo-entry-meta {

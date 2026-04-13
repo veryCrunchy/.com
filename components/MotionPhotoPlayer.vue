@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+  import { computed, onBeforeUnmount, ref, watch } from "vue";
 
   import type { CmsAsset, CmsMotionFrame } from "~/types/directus";
 
@@ -9,12 +9,18 @@
       motionFrames?: CmsMotionFrame[];
       alt?: string | null;
       intervalMs?: number;
+      transitionMs?: number;
+      finalFrameHoldMs?: number;
+      frameDurationsMs?: number[];
       autoplay?: boolean;
     }>(),
     {
       motionFrames: () => [],
       alt: null,
-      intervalMs: 130,
+      intervalMs: 110,
+      transitionMs: 180,
+      finalFrameHoldMs: 1400,
+      frameDurationsMs: () => [],
       autoplay: true,
     }
   );
@@ -22,6 +28,9 @@
   const activeIndex = ref(0);
   const isPlaying = ref(false);
   const timer = ref<ReturnType<typeof setTimeout> | null>(null);
+  const transitionTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+  const previousFrameIndex = ref<number | null>(null);
+  const isTransitioning = ref(false);
 
   const frames = computed(() => {
     const motion = (props.motionFrames || [])
@@ -32,7 +41,39 @@
   });
 
   const currentFrame = computed(() => frames.value[activeIndex.value] || props.finalImage);
+  const previousFrame = computed(() => {
+    if (previousFrameIndex.value === null) {
+      return null;
+    }
+
+    return frames.value[previousFrameIndex.value] || null;
+  });
   const hasMotion = computed(() => frames.value.length > 1);
+  const playbackDurations = computed(() => {
+    const lastIndex = frames.value.length - 1;
+    const lastMotionIndex = Math.max(0, lastIndex - 1);
+
+    return frames.value.map((_, index) => {
+      const explicit = Number(props.frameDurationsMs?.[index]);
+
+      if (Number.isFinite(explicit) && explicit > 0) {
+        return explicit;
+      }
+
+      if (index === lastIndex) {
+        return props.finalFrameHoldMs;
+      }
+
+      if (index === lastMotionIndex) {
+        return Math.max(props.intervalMs + 70, 180);
+      }
+
+      return props.intervalMs;
+    });
+  });
+  const transitionStyle = computed(() => ({
+    "--motion-transition-ms": `${props.transitionMs}ms`,
+  }));
 
   function clearTimer() {
     if (timer.value) {
@@ -41,18 +82,52 @@
     }
   }
 
+  function clearTransitionTimer() {
+    if (transitionTimer.value) {
+      clearTimeout(transitionTimer.value);
+      transitionTimer.value = null;
+    }
+  }
+
+  function finishTransition() {
+    clearTransitionTimer();
+    previousFrameIndex.value = null;
+    isTransitioning.value = false;
+  }
+
+  function advanceFrame(nextIndex: number) {
+    clearTransitionTimer();
+    previousFrameIndex.value = activeIndex.value;
+    activeIndex.value = nextIndex;
+    isTransitioning.value = true;
+
+    transitionTimer.value = setTimeout(() => {
+      finishTransition();
+    }, props.transitionMs);
+  }
+
   function stepPlayback() {
     clearTimer();
 
-    if (activeIndex.value >= frames.value.length - 1) {
+    const lastIndex = frames.value.length - 1;
+
+    if (lastIndex < 0) {
       isPlaying.value = false;
       return;
     }
 
+    if (activeIndex.value >= lastIndex) {
+      timer.value = setTimeout(() => {
+        isPlaying.value = false;
+        timer.value = null;
+      }, playbackDurations.value[lastIndex] || props.finalFrameHoldMs);
+      return;
+    }
+
     timer.value = setTimeout(() => {
-      activeIndex.value += 1;
+      advanceFrame(activeIndex.value + 1);
       stepPlayback();
-    }, props.intervalMs);
+    }, playbackDurations.value[activeIndex.value] || props.intervalMs);
   }
 
   function playSequence() {
@@ -61,6 +136,7 @@
     }
 
     clearTimer();
+    finishTransition();
     isPlaying.value = true;
     activeIndex.value = 0;
     stepPlayback();
@@ -68,6 +144,7 @@
 
   function jumpToFinalFrame() {
     clearTimer();
+    finishTransition();
     isPlaying.value = false;
     activeIndex.value = Math.max(0, frames.value.length - 1);
   }
@@ -83,32 +160,41 @@
     { immediate: true }
   );
 
-  onMounted(() => {
-    if (props.autoplay && hasMotion.value) {
-      playSequence();
-    }
-  });
-
   onBeforeUnmount(() => {
     clearTimer();
+    clearTransitionTimer();
   });
 </script>
 
 <template>
-  <div class="motion-photo-player" :class="{ 'motion-photo-player--active': hasMotion }">
-    <img
-      v-if="currentFrame"
-      class="motion-photo-player-image"
-      :src="currentFrame.url"
-      :alt="alt || currentFrame.alt || ''"
-    />
+  <div
+    class="motion-photo-player"
+    :class="{ 'motion-photo-player--active': hasMotion }"
+    :style="transitionStyle"
+  >
+    <div class="motion-photo-player-stage">
+      <img
+        v-if="currentFrame"
+        class="motion-photo-player-image"
+        :src="currentFrame.url"
+        :alt="alt || currentFrame.alt || ''"
+      />
+
+      <img
+        v-if="previousFrame"
+        class="motion-photo-player-image motion-photo-player-image--previous"
+        :class="{ 'motion-photo-player-image--fading': isTransitioning }"
+        :src="previousFrame.url"
+        :alt="alt || previousFrame.alt || ''"
+      />
+    </div>
 
     <div v-if="hasMotion" class="motion-photo-player-overlay">
       <span class="motion-photo-player-badge">
-        {{ isPlaying ? `Frame ${activeIndex + 1} / ${frames.length}` : `Sequence ${frames.length - 1} + final` }}
+        {{ isPlaying ? `Frame ${activeIndex + 1} / ${frames.length}` : `Moment ${frames.length - 1} + final` }}
       </span>
       <button type="button" class="motion-photo-player-button" @click="playSequence">
-        Replay sequence
+        Replay moment
       </button>
     </div>
   </div>
@@ -123,12 +209,32 @@
     background: linear-gradient(145deg, rgba(10, 14, 18, 0.94), rgba(17, 24, 39, 0.82));
   }
 
+  .motion-photo-player-stage {
+    position: relative;
+  }
+
   .motion-photo-player-image {
     width: 100%;
-    height: 100%;
+    height: auto;
     display: block;
     object-fit: contain;
     background: rgba(4, 6, 7, 0.82);
+  }
+
+  .motion-photo-player-image--previous {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity var(--motion-transition-ms) cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity;
+  }
+
+  .motion-photo-player-image--fading {
+    opacity: 0;
   }
 
   .motion-photo-player-overlay {

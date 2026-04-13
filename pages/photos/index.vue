@@ -76,6 +76,24 @@
     if (width === height) return "Square";
     return width > height ? "Landscape" : "Portrait";
   }
+
+  function formatLocationLabel(photo: {
+    location?: string | null;
+    locationMeta?: { city?: string | null; country?: string | null; title?: string | null } | null;
+  }) {
+    if (photo.locationMeta?.city && photo.locationMeta?.country) {
+      return `${photo.locationMeta.city}, ${photo.locationMeta.country}`;
+    }
+
+    return photo.locationMeta?.title || photo.location || "Location pending";
+  }
+
+  function formatMotionLabel(photo: { hasMotion?: boolean; motionFrameCount?: number | null }) {
+    if (!photo.hasMotion) return null;
+
+    const count = Number(photo.motionFrameCount || 0);
+    return `Moment + ${count} frame${count !== 1 ? "s" : ""}`;
+  }
 </script>
 
 <template>
@@ -227,16 +245,19 @@
             />
           </div>
           <div class="photo-card-copy">
-            <div class="photo-card-head">
-              <h2>{{ photo.title }}</h2>
+            <div class="photo-card-eyebrow">
+              <span class="photo-card-kind">{{ photo.hasMotion ? "Moment" : "Photo" }}</span>
               <span>{{ formatDate(photo.takenAt || photo.publishedAt) }}</span>
             </div>
-            <p>{{ photo.description || "Open the photo page for the full frame and notes." }}</p>
+            <div class="photo-card-head">
+              <h2>{{ photo.title }}</h2>
+              <p class="photo-card-place">{{ formatLocationLabel(photo) }}</p>
+            </div>
+            <p class="photo-card-summary">{{ photo.description || "Open the photo page for the full frame and notes." }}</p>
             <div class="photo-card-meta">
+              <span v-if="photo.hasMotion">{{ formatMotionLabel(photo) }}</span>
               <span>{{ orientationLabel(photo.image?.width, photo.image?.height) }}</span>
               <span>{{ formatDimensions(photo.image?.width, photo.image?.height) }}</span>
-              <span v-if="photo.hasMotion">Motion · {{ photo.motionFrameCount }}</span>
-              <span v-if="photo.location">{{ photo.location }}</span>
               <span v-if="photo.camera">{{ photo.camera }}</span>
             </div>
           </div>
@@ -428,13 +449,37 @@
     padding: 1rem 1rem 1.1rem;
   }
 
-  .photo-set-thumb-head,
-  .photo-card-head {
+  .photo-set-thumb-head {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem 0.85rem;
     align-items: baseline;
     justify-content: space-between;
+  }
+
+  .photo-card-eyebrow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #86efac;
+  }
+
+  .photo-card-kind {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.24rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid rgba(74, 222, 128, 0.2);
+    background: rgba(34, 197, 94, 0.12);
+  }
+
+  .photo-card-head {
+    display: grid;
+    gap: 0.3rem;
   }
 
   .photo-set-thumb-title,
@@ -461,10 +506,23 @@
   }
 
   .photo-set-thumb-copy p,
-  .photo-card-copy p,
   .photo-empty p {
     line-height: 1.75;
     color: #cbd5e1;
+  }
+
+  .photo-card-place {
+    font-size: 0.88rem;
+    color: #94a3b8;
+  }
+
+  .photo-card-summary {
+    line-height: 1.72;
+    color: #cbd5e1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .photo-grid-shell {
