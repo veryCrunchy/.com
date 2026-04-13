@@ -14,11 +14,15 @@
     location: null,
     camera: null,
     lens: null,
+    locationMeta: null,
+    cameraMeta: null,
+    lensMeta: null,
     tags: [],
     image: null,
     hasMotion: false,
     motionFrameCount: 0,
     sets: [],
+    timelines: [],
     motionFrames: [],
   };
 
@@ -83,6 +87,32 @@
     return width > height ? "Landscape frame" : "Portrait frame";
   });
 
+  const imageRatio = computed(() => {
+    const width = photo.value.image?.width;
+    const height = photo.value.image?.height;
+
+    if (!width || !height) {
+      return null;
+    }
+
+    return width / height;
+  });
+
+  const frameStyle = computed(() => {
+    const width = photo.value.image?.width;
+    const height = photo.value.image?.height;
+    const ratio = imageRatio.value;
+
+    if (!width || !height || !ratio) {
+      return undefined;
+    }
+
+    return {
+      aspectRatio: `${width} / ${height}`,
+      "--photo-frame-ratio": `${ratio}`,
+    };
+  });
+
   const locationLabel = computed(() => {
     const locationMeta = photo.value.locationMeta;
 
@@ -101,6 +131,14 @@
     const count = photo.value.motionFrameCount || 0;
     return `Moment sequence · ${count} motion frame${count !== 1 ? "s" : ""}`;
   });
+
+  const viewerOpen = ref(false);
+  const viewerMode = ref<"still" | "motion">("still");
+
+  function openViewer(mode: "still" | "motion" = "still") {
+    viewerMode.value = mode;
+    viewerOpen.value = true;
+  }
 
   useSeoMeta({
     title: computed(() => `${photo.value.title || "Photo"} | Photos | veryCrunchy`),
@@ -201,6 +239,8 @@
           <div
             v-if="photo.image"
             class="photo-entry-frame"
+            :class="{ 'photo-entry-frame--sized': Boolean(imageRatio) }"
+            :style="frameStyle"
             data-directus-collection="photos"
             :data-directus-item="photo.id"
             data-directus-field="image"
@@ -210,6 +250,9 @@
               :final-image="photo.image"
               :motion-frames="photo.motionFrames"
               :alt="photo.image.alt || photo.title"
+              :autoplay="false"
+              :play-on-hover="true"
+              :show-overlay-controls="false"
             />
             <PhotoAsset
               v-else
@@ -251,6 +294,17 @@
             <div class="photo-entry-panel">
               <span class="photo-entry-panel-label">Quick Actions</span>
               <div class="photo-entry-actions">
+                <button
+                  type="button"
+                  class="photo-entry-action photo-entry-action-secondary"
+                  @click="openViewer('still')"
+                >Open viewer</button>
+                <button
+                  v-if="photo.hasMotion"
+                  type="button"
+                  class="photo-entry-action"
+                  @click="openViewer('motion')"
+                >Play motion</button>
                 <a
                   v-if="photo.image?.url"
                   :href="photo.image.url"
@@ -291,6 +345,15 @@
             class="photo-entry-set-chip"
           >{{ timeline.title }}</NuxtLink>
         </div>
+
+        <PhotoViewerModal
+          v-model:open="viewerOpen"
+          :image="photo.image"
+          :motion-frames="photo.motionFrames"
+          :title="photo.title"
+          :description="photo.description"
+          :initial-mode="viewerMode"
+        />
       </template>
     </section>
   </main>
@@ -468,11 +531,24 @@
   }
 
   .photo-entry-frame {
+    position: relative;
     overflow: hidden;
     border-radius: 1.8rem;
     border: 1px solid rgba(148, 163, 184, 0.16);
     background: rgba(8, 15, 10, 0.92);
     box-shadow: 0 28px 44px rgba(0, 0, 0, 0.34);
+  }
+
+  .photo-entry-frame--sized {
+    width: min(100%, calc(min(78dvh, 56rem) * var(--photo-frame-ratio, 1)));
+    max-height: min(78dvh, 56rem);
+    justify-self: center;
+  }
+
+  .photo-entry-frame :deep(.motion-photo-player),
+  .photo-entry-frame :deep(.photo-asset) {
+    width: 100%;
+    height: 100%;
   }
 
   .photo-entry-insights {

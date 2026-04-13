@@ -107,6 +107,9 @@
         <NuxtLink to="/photos/timeline" class="photo-hero-action">
           Open timeline
         </NuxtLink>
+        <NuxtLink to="/photos/upload" class="photo-hero-action photo-hero-action-secondary">
+          Open ingest studio
+        </NuxtLink>
       </div>
 
       <div class="photo-hero-stats">
@@ -231,17 +234,17 @@
       </div>
 
       <section v-if="photos.length" class="photo-grid">
-        <NuxtLink
+        <article
           v-for="photo in photos"
           :key="photo.id"
-          :to="`/photos/${photo.slug}`"
           class="photo-card"
         >
-          <div v-if="photo.image" class="photo-card-image">
-            <PhotoAsset
-              :src="photo.image.previewUrl || photo.image.url"
-              :alt="photo.image.alt || photo.title"
+          <div class="photo-card-image">
+            <InteractivePhotoSurface
+              :photo="photo"
               aspect-ratio="1 / 1"
+              fit="cover"
+              :detail-href="`/photos/${photo.slug}`"
             />
           </div>
           <div class="photo-card-copy">
@@ -250,7 +253,9 @@
               <span>{{ formatDate(photo.takenAt || photo.publishedAt) }}</span>
             </div>
             <div class="photo-card-head">
-              <h2>{{ photo.title }}</h2>
+              <NuxtLink :to="`/photos/${photo.slug}`" class="photo-card-title-link">
+                <h2>{{ photo.title }}</h2>
+              </NuxtLink>
               <p class="photo-card-place">{{ formatLocationLabel(photo) }}</p>
             </div>
             <p class="photo-card-summary">{{ photo.description || "Open the photo page for the full frame and notes." }}</p>
@@ -261,7 +266,7 @@
               <span v-if="photo.camera">{{ photo.camera }}</span>
             </div>
           </div>
-        </NuxtLink>
+        </article>
       </section>
 
       <section v-else-if="isArchiveLoading" class="photo-grid photo-grid-skeleton" aria-live="polite">
@@ -353,6 +358,12 @@
     color: #d1fae5;
     border: 1px solid rgba(74, 222, 128, 0.22);
     font-weight: 600;
+  }
+
+  .photo-hero-action-secondary {
+    background: rgba(15, 23, 42, 0.58);
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.2);
   }
 
   .photo-hero-stat {
@@ -482,6 +493,10 @@
     gap: 0.3rem;
   }
 
+  .photo-card-title-link:hover h2 {
+    color: #86efac;
+  }
+
   .photo-set-thumb-title,
   .photo-card-head h2,
   .photo-grid-head h2,
@@ -520,6 +535,7 @@
     line-height: 1.72;
     color: #cbd5e1;
     display: -webkit-box;
+    line-clamp: 3;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;

@@ -75,6 +75,12 @@
     watch: true,
   });
 
+  useHead({
+    bodyAttrs: {
+      class: "home-cursor-page",
+    },
+  });
+
   type HoverSnapEl = {
     rect: DOMRect;
     size?: string;
@@ -386,7 +392,7 @@
           },
           { signal }
         );
-      }, main.value);
+      }, main.value || undefined);
     }, 300);
 
     updateRects();
@@ -557,6 +563,10 @@
   });
 
   onBeforeUnmount(() => {
+    window.onmousemove = null;
+    window.ontouchmove = null;
+    window.onscroll = null;
+    window.onresize = null;
     requestBookPageTurn = null;
     bookInteractionController?.abort();
     animationContext?.revert();
@@ -1172,8 +1182,12 @@
     --bg-color: #0b0d11;
     --accent: #8ea8c3;
     --grain-overlay: url(/grain.svg);
-    cursor: none;
     transition: background 1s, color 1s;
+  }
+
+  body.home-cursor-page,
+  body.home-cursor-page * {
+    cursor: none !important;
   }
 
   :root.dark { color: var(--primary); }

@@ -109,10 +109,6 @@ const PHOTO_FIELDS = [
   {
     image: ["id", "title", "description", "width", "height", "filename_download"],
   },
-] as const;
-
-const PHOTO_DETAIL_FIELDS = [
-  ...PHOTO_FIELDS,
   {
     motion_frames: [
       "id",
@@ -123,6 +119,10 @@ const PHOTO_DETAIL_FIELDS = [
       },
     ],
   },
+] as const;
+
+const PHOTO_DETAIL_FIELDS = [
+  ...PHOTO_FIELDS,
 ] as const;
 
 const PHOTOSET_BASE_FIELDS = [
@@ -175,6 +175,16 @@ const PHOTOSET_PHOTO_FIELDS = [
       },
       {
         image: ["id", "title", "description", "width", "height", "filename_download"],
+      },
+      {
+        motion_frames: [
+          "id",
+          "photos_id",
+          "sort",
+          {
+            frame_file: ["id", "title", "description", "width", "height", "filename_download"],
+          },
+        ],
       },
     ],
   },
@@ -238,6 +248,16 @@ const TIMELINE_ENTRY_FIELDS = [
       },
       {
         image: ["id", "title", "description", "width", "height", "filename_download"],
+      },
+      {
+        motion_frames: [
+          "id",
+          "photos_id",
+          "sort",
+          {
+            frame_file: ["id", "title", "description", "width", "height", "filename_download"],
+          },
+        ],
       },
     ],
   },
@@ -507,6 +527,7 @@ export function normalizePhotoSummary(
     tags: photo.tags || [],
     hasMotion: motionFrameCount > 0,
     motionFrameCount,
+    motionFrames: normalizeMotionFrames(event, photo.motion_frames),
     image: normalizeAsset(event, photo.image, {
       width: 2200,
       quality: 82,
@@ -545,11 +566,13 @@ export function normalizePhoto(
   sets: CmsSetRef[] = [],
   timelines: CmsTimelineRef[] = []
 ): CmsPhoto {
+  const summary = normalizePhotoSummary(event, photo);
+
   return {
-    ...normalizePhotoSummary(event, photo),
+    ...summary,
     sets,
     timelines,
-    motionFrames: normalizeMotionFrames(event, photo.motion_frames),
+    motionFrames: summary.motionFrames,
   };
 }
 

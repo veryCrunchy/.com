@@ -314,6 +314,9 @@ export interface CmsPhotoSummary {
   image: CmsAsset | null;
   hasMotion: boolean;
   motionFrameCount: number;
+  motionFrames: CmsMotionFrame[];
+  sets?: CmsSetRef[];
+  timelines?: CmsTimelineRef[];
 }
 
 export interface CmsMotionFrame {

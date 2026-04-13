@@ -18,7 +18,7 @@
       {
         key: string;
         label: string;
-        items: typeof photos.value;
+        items: Array<(typeof photos.value)[number]>;
       }
     >();
 
@@ -29,7 +29,7 @@
       const label = date
         ? new Intl.DateTimeFormat("en", { dateStyle: "full" }).format(date)
         : "Undated";
-      const group = groups.get(key) || { key, label, items: [] };
+      const group = groups.get(key) || { key, label, items: [] as Array<(typeof photos.value)[number]> };
       group.items.push(photo);
       groups.set(key, group);
     }
@@ -79,13 +79,13 @@
           >
             <div class="timeline-node" />
 
-            <NuxtLink :to="`/photos/${photo.slug}`" class="timeline-card">
+            <article class="timeline-card">
               <div class="timeline-card-image">
-                <PhotoAsset
-                  v-if="photo.image"
-                  :src="photo.image.previewUrl || photo.image.url"
-                  :alt="photo.image.alt || photo.title"
+                <InteractivePhotoSurface
+                  :photo="photo"
                   aspect-ratio="4 / 3"
+                  fit="cover"
+                  :detail-href="`/photos/${photo.slug}`"
                 />
               </div>
 
@@ -95,7 +95,9 @@
                     <span class="timeline-card-kicker">
                       {{ photo.sets?.[0]?.title || "Single frame" }}
                     </span>
-                    <h2>{{ photo.title }}</h2>
+                    <NuxtLink :to="`/photos/${photo.slug}`" class="timeline-card-title-link">
+                      <h2>{{ photo.title }}</h2>
+                    </NuxtLink>
                   </div>
                   <span class="timeline-card-date">
                     {{ photo.takenAt ? new Date(photo.takenAt).toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" }) : "Undated" }}
@@ -110,7 +112,7 @@
                   <span v-if="photo.hasMotion">Motion sequence · {{ photo.motionFrameCount }} frame{{ photo.motionFrameCount !== 1 ? "s" : "" }}</span>
                 </div>
               </div>
-            </NuxtLink>
+            </article>
           </article>
         </div>
       </section>
@@ -156,6 +158,10 @@
     margin-top: 1rem;
     line-height: 1.85;
     color: #94a3b8;
+  }
+
+  .timeline-card-title-link:hover h2 {
+    color: #86efac;
   }
 
   .timeline-actions {

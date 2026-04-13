@@ -129,27 +129,27 @@
         </header>
 
         <div v-if="photoset.photos.length" class="set-grid" data-directus-field="photos">
-          <NuxtLink
+          <article
             v-for="photo in photoset.photos"
             :key="photo.id"
-            :to="`/photos/${photo.slug}?from=${photoset.slug}`"
             class="set-photo"
           >
             <div class="set-photo-frame">
-              <PhotoAsset
-                v-if="photo.image"
-                :src="photo.image.previewUrl || photo.image.url"
-                :alt="photo.image.alt || photo.title"
+              <InteractivePhotoSurface
+                :photo="photo"
                 aspect-ratio="4 / 3"
+                fit="cover"
+                :detail-href="`/photos/${photo.slug}?from=${photoset.slug}`"
               />
-              <div v-else class="set-photo-placeholder" />
             </div>
             <div class="set-photo-caption">
-              <span>{{ photo.title }}</span>
+              <NuxtLink :to="`/photos/${photo.slug}?from=${photoset.slug}`" class="set-photo-title">
+                <span>{{ photo.title }}</span>
+              </NuxtLink>
               <span v-if="photo.hasMotion" class="set-photo-camera">Motion {{ photo.motionFrameCount }}</span>
               <span v-else-if="photo.camera" class="set-photo-camera">{{ photo.camera }}</span>
             </div>
-          </NuxtLink>
+          </article>
         </div>
 
         <div v-if="photoset.tags.length" class="set-tags">
@@ -271,12 +271,6 @@
     background: rgba(15, 23, 42, 0.5);
   }
 
-  .set-photo-placeholder {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(15, 23, 42, 0.8));
-  }
-
   .set-photo-caption {
     display: flex;
     justify-content: space-between;
@@ -289,6 +283,10 @@
     font-size: 0.85rem;
     font-weight: 500;
     color: #f0fdf4;
+  }
+
+  .set-photo-title:hover span {
+    color: #86efac;
   }
 
   .set-photo-camera {

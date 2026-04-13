@@ -6,7 +6,21 @@
 
   const { data } = await useAsyncData(
     () => `cms-post-${slug.value}`,
-    () => $fetch(`/api/cms/posts/${slug.value}`)
+    () => $fetch(`/api/cms/posts/${slug.value}`),
+    {
+      default: () => ({
+        post: {
+          id: "",
+          slug: "",
+          title: "",
+          excerpt: null,
+          publishedAt: null,
+          tags: [],
+          coverImage: null,
+          content: null,
+        },
+      }),
+    }
   );
 
   const post = computed(() => data.value.post);

@@ -63,22 +63,23 @@
               <p v-else>{{ entry.photo?.description || "Open the frame for the full image and archive context." }}</p>
             </div>
 
-            <NuxtLink
+            <div
               v-if="entry.photo"
-              :to="`/photos/${entry.photo.slug}`"
               class="timeline-detail-entry-photo"
             >
-              <PhotoAsset
-                v-if="entry.photo.image"
-                :src="entry.photo.image.previewUrl || entry.photo.image.url"
-                :alt="entry.photo.image.alt || entry.photo.title"
+              <InteractivePhotoSurface
+                :photo="entry.photo"
                 aspect-ratio="4 / 3"
+                fit="cover"
+                :detail-href="`/photos/${entry.photo.slug}`"
               />
               <div class="timeline-detail-entry-caption">
-                <strong>{{ entry.photo.title }}</strong>
+                <NuxtLink :to="`/photos/${entry.photo.slug}`" class="timeline-detail-entry-link">
+                  <strong>{{ entry.photo.title }}</strong>
+                </NuxtLink>
                 <span v-if="entry.photo.hasMotion">Motion {{ entry.photo.motionFrameCount }}</span>
               </div>
-            </NuxtLink>
+            </div>
           </article>
         </section>
       </template>
@@ -170,6 +171,10 @@
     color: #f8fafc;
     font-family: "Syne", sans-serif;
     font-size: 1.2rem;
+  }
+
+  .timeline-detail-entry-link:hover strong {
+    color: #86efac;
   }
 
   .timeline-detail-entry-caption span {

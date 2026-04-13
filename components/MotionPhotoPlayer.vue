@@ -8,20 +8,26 @@
       finalImage: CmsAsset | null;
       motionFrames?: CmsMotionFrame[];
       alt?: string | null;
+      fit?: "cover" | "contain";
       intervalMs?: number;
       transitionMs?: number;
       finalFrameHoldMs?: number;
       frameDurationsMs?: number[];
       autoplay?: boolean;
+      playOnHover?: boolean;
+      showOverlayControls?: boolean;
     }>(),
     {
       motionFrames: () => [],
       alt: null,
+      fit: "contain",
       intervalMs: 110,
       transitionMs: 180,
       finalFrameHoldMs: 1400,
       frameDurationsMs: () => [],
       autoplay: true,
+      playOnHover: false,
+      showOverlayControls: true,
     }
   );
 
@@ -149,6 +155,23 @@
     activeIndex.value = Math.max(0, frames.value.length - 1);
   }
 
+  function handleMouseEnter() {
+    if (props.playOnHover && hasMotion.value) {
+      playSequence();
+    }
+  }
+
+  function handleMouseLeave() {
+    if (props.playOnHover && hasMotion.value) {
+      jumpToFinalFrame();
+    }
+  }
+
+  defineExpose({
+    playSequence,
+    jumpToFinalFrame,
+  });
+
   watch(
     () => frames.value.map((frame) => frame.id).join(","),
     () => {
@@ -169,8 +192,14 @@
 <template>
   <div
     class="motion-photo-player"
-    :class="{ 'motion-photo-player--active': hasMotion }"
+    :class="{
+      'motion-photo-player--active': hasMotion,
+      'motion-photo-player--cover': fit === 'cover',
+      'motion-photo-player--contain': fit === 'contain',
+    }"
     :style="transitionStyle"
+    @mouseenter="handleMouseEnter"
+    @mouseleave="handleMouseLeave"
   >
     <div class="motion-photo-player-stage">
       <img
@@ -189,7 +218,7 @@
       />
     </div>
 
-    <div v-if="hasMotion" class="motion-photo-player-overlay">
+    <div v-if="hasMotion && showOverlayControls" class="motion-photo-player-overlay">
       <span class="motion-photo-player-badge">
         {{ isPlaying ? `Frame ${activeIndex + 1} / ${frames.length}` : `Moment ${frames.length - 1} + final` }}
       </span>
@@ -215,10 +244,25 @@
 
   .motion-photo-player-image {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: block;
-    object-fit: contain;
     background: rgba(4, 6, 7, 0.82);
+  }
+
+  .motion-photo-player--contain .motion-photo-player-image {
+    object-fit: contain;
+  }
+
+  .motion-photo-player--cover .motion-photo-player-image {
+    object-fit: cover;
+  }
+
+  .motion-photo-player--contain .motion-photo-player-stage {
+    height: 100%;
+  }
+
+  .motion-photo-player--cover .motion-photo-player-stage {
+    height: 100%;
   }
 
   .motion-photo-player-image--previous {
