@@ -35,11 +35,14 @@
 
 <template>
   <div class="interactive-photo-surface">
-    <button
-      type="button"
+    <div
       class="interactive-photo-stage"
+      role="button"
+      tabindex="0"
       :style="aspectRatio ? { aspectRatio } : undefined"
       @click="openViewer('still')"
+      @keydown.enter.prevent="openViewer('still')"
+      @keydown.space.prevent="openViewer('still')"
     >
       <MotionPhotoPlayer
         v-if="motionReady && photo.image"
@@ -86,18 +89,20 @@
           </NuxtLink>
         </div>
       </div>
-    </button>
+    </div>
 
     <slot />
 
-    <PhotoViewerModal
-      v-model:open="viewerOpen"
-      :image="photo.image"
-      :motion-frames="photo.motionFrames"
-      :title="photo.title"
-      :description="photo.description"
-      :initial-mode="viewerMode"
-    />
+    <ClientOnly>
+      <PhotoViewerModal
+        v-model:open="viewerOpen"
+        :image="photo.image"
+        :motion-frames="photo.motionFrames"
+        :title="photo.title"
+        :description="photo.description"
+        :initial-mode="viewerMode"
+      />
+    </ClientOnly>
   </div>
 </template>
 

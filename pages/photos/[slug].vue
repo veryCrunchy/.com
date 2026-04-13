@@ -346,14 +346,16 @@
           >{{ timeline.title }}</NuxtLink>
         </div>
 
-        <PhotoViewerModal
-          v-model:open="viewerOpen"
-          :image="photo.image"
-          :motion-frames="photo.motionFrames"
-          :title="photo.title"
-          :description="photo.description"
-          :initial-mode="viewerMode"
-        />
+        <ClientOnly>
+          <PhotoViewerModal
+            v-model:open="viewerOpen"
+            :image="photo.image"
+            :motion-frames="photo.motionFrames"
+            :title="photo.title"
+            :description="photo.description"
+            :initial-mode="viewerMode"
+          />
+        </ClientOnly>
       </template>
     </section>
   </main>

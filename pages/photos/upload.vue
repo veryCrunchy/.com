@@ -15,6 +15,7 @@
   type IngestPhoto = {
     sourcePath: string;
     filename?: string;
+    previousSlugs?: string[];
     targetPhotoSlug?: string;
     uiAttachToExisting?: boolean;
     title: string;
@@ -47,18 +48,32 @@
     photos?: IngestPhoto[];
   };
 
+  type PersistedStudioState = {
+    pathsText: string;
+    manifest: IngestManifest | null;
+    manifestPath: string | null;
+    outputLog: string;
+    suggestionSource: "heuristic" | "copilot-cli" | "ai-api" | null;
+    suggestionDetail: string;
+    completedAction: "prepare" | "suggest" | "upload" | "update" | "repair" | null;
+  };
+
+  const STUDIO_STORAGE_KEY = "photo-ingest-studio-state-v1";
+
   const pathsText = ref("");
   const manifest = ref<IngestManifest | null>(null);
   const manifestPath = ref<string | null>(null);
-  const busyAction = ref<"prepare" | "suggest" | "upload" | null>(null);
+  const busyAction = ref<"prepare" | "suggest" | "upload" | "update" | "repair" | null>(null);
   const outputLog = ref("");
-  const suggestionSource = ref<"heuristic" | "ai" | null>(null);
+  const suggestionSource = ref<"heuristic" | "copilot-cli" | "ai-api" | null>(null);
+  const suggestionDetail = ref("");
   const errorMessage = ref("");
-  const completedAction = ref<"prepare" | "suggest" | "upload" | null>(null);
+  const completedAction = ref<"prepare" | "suggest" | "upload" | "update" | "repair" | null>(null);
   const livePhotos = ref<CmsPhotoSummary[]>([]);
   const livePhotosLoaded = ref(false);
   const livePhotosLoading = ref(false);
   const livePhotosError = ref("");
+  const hasRestoredState = ref(false);
 
   const photoCount = computed(() => manifest.value?.photos?.length || 0);
   const setCount = computed(() => manifest.value?.sets?.length || 0);
@@ -78,6 +93,14 @@
       return "Uploading files and updating Directus records...";
     }
 
+    if (busyAction.value === "update") {
+      return "Updating uploaded Directus photo metadata from the current manifest...";
+    }
+
+    if (busyAction.value === "repair") {
+      return "Re-suggesting metadata from the current brief and patching uploaded Directus records...";
+    }
+
     if (errorMessage.value) {
       return errorMessage.value;
     }
@@ -87,13 +110,29 @@
     }
 
     if (completedAction.value === "suggest") {
-      return suggestionSource.value === "ai"
-        ? "AI suggestions applied. Review the copy before upload."
+      if (suggestionSource.value === "copilot-cli") {
+        return "Copilot CLI suggestions applied. Review the copy before upload.";
+      }
+
+      if (suggestionSource.value === "ai-api") {
+        return "AI API suggestions applied. Review the copy before upload.";
+      }
+
+      return suggestionDetail.value
+        ? `Heuristic suggestions applied. ${suggestionDetail.value}`
         : "Heuristic suggestions applied. Review the copy before upload.";
     }
 
     if (completedAction.value === "upload") {
       return "Upload finished. Check the log below for validation and Directus results.";
+    }
+
+    if (completedAction.value === "update") {
+      return "Uploaded photo metadata updated from the current manifest.";
+    }
+
+    if (completedAction.value === "repair") {
+      return "Metadata was re-suggested and uploaded Directus photo records were patched.";
     }
 
     return "";
@@ -128,6 +167,58 @@
     };
   }
 
+  function clearPersistedStudioState() {
+    if (!import.meta.client) {
+      return;
+    }
+
+    localStorage.removeItem(STUDIO_STORAGE_KEY);
+  }
+
+  function persistStudioState() {
+    if (!import.meta.client || !hasRestoredState.value) {
+      return;
+    }
+
+    const payload: PersistedStudioState = {
+      pathsText: pathsText.value,
+      manifest: manifest.value,
+      manifestPath: manifestPath.value,
+      outputLog: outputLog.value,
+      suggestionSource: suggestionSource.value,
+      suggestionDetail: suggestionDetail.value,
+      completedAction: completedAction.value,
+    };
+
+    localStorage.setItem(STUDIO_STORAGE_KEY, JSON.stringify(payload));
+  }
+
+  function restoreStudioState() {
+    if (!import.meta.client) {
+      return;
+    }
+
+    const raw = localStorage.getItem(STUDIO_STORAGE_KEY);
+    hasRestoredState.value = true;
+
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const payload = JSON.parse(raw) as Partial<PersistedStudioState>;
+      pathsText.value = String(payload.pathsText || "");
+      manifest.value = payload.manifest ? normalizeManifestShape(payload.manifest) : null;
+      manifestPath.value = payload.manifestPath ? String(payload.manifestPath) : null;
+      outputLog.value = String(payload.outputLog || "");
+      suggestionSource.value = payload.suggestionSource || null;
+      suggestionDetail.value = String(payload.suggestionDetail || "");
+      completedAction.value = payload.completedAction || null;
+    } catch {
+      clearPersistedStudioState();
+    }
+  }
+
   function normalizeManifestShape(nextManifest: IngestManifest) {
     return {
       ...nextManifest,
@@ -139,6 +230,7 @@
       photos: Array.isArray(nextManifest.photos)
         ? nextManifest.photos.map((photo) => ({
             ...photo,
+            previousSlugs: Array.isArray(photo.previousSlugs) ? photo.previousSlugs : [],
             tags: Array.isArray(photo.tags) ? photo.tags : [],
             setSlugs: Array.isArray(photo.setSlugs) ? photo.setSlugs : [],
             targetPhotoSlug: typeof photo.targetPhotoSlug === "string" ? photo.targetPhotoSlug : "",
@@ -150,6 +242,18 @@
         : [],
     } satisfies IngestManifest;
   }
+
+  onMounted(() => {
+    restoreStudioState();
+  });
+
+  watch(
+    [pathsText, manifest, manifestPath, outputLog, suggestionSource, suggestionDetail, completedAction],
+    () => {
+      persistStudioState();
+    },
+    { deep: true }
+  );
 
   function splitCsv(value: string) {
     return value
@@ -265,6 +369,7 @@
     busyAction.value = "prepare";
     errorMessage.value = "";
     suggestionSource.value = null;
+    suggestionDetail.value = "";
     completedAction.value = null;
 
     try {
@@ -290,18 +395,28 @@
     busyAction.value = "suggest";
     errorMessage.value = "";
     completedAction.value = null;
+    suggestionDetail.value = "";
 
     try {
-      const response = await $fetch<{ manifest: IngestManifest; source: "heuristic" | "ai" }>("/api/cms/photo-ingest/suggest", {
+      const response = await $fetch<{
+        manifest: IngestManifest;
+        source: "heuristic" | "copilot-cli" | "ai-api";
+        detail?: string;
+      }>("/api/cms/photo-ingest/suggest", {
         method: "POST",
         body: { manifest: manifest.value },
       });
 
       manifest.value = normalizeManifestShape(response.manifest);
       suggestionSource.value = response.source;
-      outputLog.value = response.source === "ai"
-        ? "Applied AI metadata suggestions."
-        : "Applied heuristic metadata suggestions.";
+      suggestionDetail.value = response.detail || "";
+      outputLog.value = response.source === "copilot-cli"
+        ? "Applied metadata suggestions via Copilot CLI."
+        : response.source === "ai-api"
+          ? "Applied metadata suggestions via AI API."
+          : response.detail
+            ? `Applied heuristic metadata suggestions. ${response.detail}`
+            : "Applied heuristic metadata suggestions.";
       completedAction.value = "suggest";
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : "Failed to suggest metadata.";
@@ -315,6 +430,7 @@
 
     busyAction.value = "upload";
     errorMessage.value = "";
+    suggestionDetail.value = "";
     completedAction.value = null;
 
     try {
@@ -328,6 +444,73 @@
       completedAction.value = "upload";
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : "Upload failed.";
+    } finally {
+      busyAction.value = null;
+    }
+  }
+
+  async function updateUploadedMetadata() {
+    if (!manifest.value) return;
+
+    busyAction.value = "update";
+    errorMessage.value = "";
+    completedAction.value = null;
+
+    try {
+      const response = await $fetch<{ updatedCount: number; output: string }>("/api/cms/photo-ingest/update", {
+        method: "POST",
+        body: { manifest: manifest.value },
+      });
+
+      outputLog.value = response.output;
+      completedAction.value = "update";
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : "Metadata update failed.";
+    } finally {
+      busyAction.value = null;
+    }
+  }
+
+  async function repairUploadedMetadata() {
+    if (!manifest.value) return;
+
+    busyAction.value = "repair";
+    errorMessage.value = "";
+    completedAction.value = null;
+    suggestionDetail.value = "";
+
+    try {
+      const suggestResponse = await $fetch<{
+        manifest: IngestManifest;
+        source: "heuristic" | "copilot-cli" | "ai-api";
+        detail?: string;
+      }>("/api/cms/photo-ingest/suggest", {
+        method: "POST",
+        body: { manifest: manifest.value },
+      });
+
+      manifest.value = normalizeManifestShape(suggestResponse.manifest);
+      suggestionSource.value = suggestResponse.source;
+      suggestionDetail.value = suggestResponse.detail || "";
+
+      const updateResponse = await $fetch<{ updatedCount: number; output: string }>("/api/cms/photo-ingest/update", {
+        method: "POST",
+        body: { manifest: manifest.value },
+      });
+
+      outputLog.value = [
+        suggestResponse.source === "copilot-cli"
+          ? "Applied metadata suggestions via Copilot CLI."
+          : suggestResponse.source === "ai-api"
+            ? "Applied metadata suggestions via AI API."
+            : suggestResponse.detail
+              ? `Applied heuristic metadata suggestions. ${suggestResponse.detail}`
+              : "Applied heuristic metadata suggestions.",
+        updateResponse.output,
+      ].filter(Boolean).join("\n\n");
+      completedAction.value = "repair";
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : "Repair failed.";
     } finally {
       busyAction.value = null;
     }
@@ -371,12 +554,19 @@
           <button type="button" class="ingest-button" :disabled="!manifest || busyAction !== null" @click="uploadManifest">
             {{ busyAction === "upload" ? "Uploading…" : "Upload batch" }}
           </button>
+          <button type="button" class="ingest-button ingest-button--ghost" :disabled="!manifest || busyAction !== null" @click="updateUploadedMetadata">
+            {{ busyAction === "update" ? "Updating metadata…" : "Update uploaded metadata" }}
+          </button>
+          <button type="button" class="ingest-button ingest-button--ghost" :disabled="!manifest || busyAction !== null" @click="repairUploadedMetadata">
+            {{ busyAction === "repair" ? "Repairing uploaded metadata…" : "Re-suggest and patch uploaded" }}
+          </button>
         </div>
         <div v-if="statusMessage" class="ingest-status" :class="`ingest-status--${statusTone}`" aria-live="polite">
           <span v-if="busyAction" class="ingest-status-spinner" aria-hidden="true" />
           <span class="ingest-status-copy">{{ statusMessage }}</span>
         </div>
         <p class="ingest-note">This is intentionally local-first. It uses the same server environment and Directus token as the existing ingest scripts.</p>
+        <p class="ingest-note">Studio state is saved locally in this browser, so the current manifest and AI brief come back after refresh.</p>
         <p class="ingest-note">Windows drive paths like <strong>C:\Users\...</strong> are converted to WSL mount paths automatically during prepare and upload.</p>
         <p class="ingest-note">For motion images, the main photo stays in <code>sourcePath</code>. Extra sequence frames go in the motion frame list on that photo card.</p>
         <p class="ingest-note">If the still image already exists in Directus, set an existing photo slug on the card and the upload will attach or replace motion frames on that record without replacing the main image.</p>
@@ -387,7 +577,11 @@
           <p class="ingest-note">Load the live archive once, then use attach mode on a card to pick an existing photo by slug or from browser autocomplete.</p>
         </div>
         <p v-if="livePhotosError" class="ingest-error">{{ livePhotosError }}</p>
-        <p v-if="suggestionSource" class="ingest-note">Suggestion source: <strong>{{ suggestionSource }}</strong></p>
+        <p v-if="suggestionSource" class="ingest-note">
+          Suggestion source:
+          <strong>{{ suggestionSource }}</strong>
+          <template v-if="suggestionDetail"> · {{ suggestionDetail }}</template>
+        </p>
         <p v-if="manifestPath" class="ingest-note">Manifest path: {{ manifestPath }}</p>
         <p v-if="errorMessage" class="ingest-error">{{ errorMessage }}</p>
         <pre v-if="outputLog" class="ingest-log">{{ outputLog }}</pre>
@@ -410,22 +604,53 @@
             </div>
           </div>
 
+          <div class="ingest-brief-head">
+            <div>
+              <span class="ingest-label">AI Brief</span>
+              <p class="ingest-section-note">
+                Before suggesting metadata, give the model the story you want it to preserve. The AI now inspects each image individually, then combines what it sees with the brief below.
+              </p>
+            </div>
+          </div>
+
+          <div class="ingest-brief-prompts">
+            <p class="ingest-note">What is happening here, or why does this frame matter?</p>
+            <p class="ingest-note">What should the caption emphasize: atmosphere, motion, isolation, humor, tension, place, or something else?</p>
+            <p class="ingest-note">Anything it should avoid saying or inferring?</p>
+          </div>
+
           <div class="ingest-story-grid">
             <label>
               <span class="ingest-label">Journey summary</span>
-              <textarea v-model="manifest.storyContext!.journeySummary" class="ingest-textarea ingest-textarea--small" />
+              <textarea
+                v-model="manifest.storyContext!.journeySummary"
+                class="ingest-textarea ingest-textarea--small"
+                placeholder="What is happening in this batch? What drew you to these frames?"
+              />
             </label>
             <label>
               <span class="ingest-label">Set notes</span>
-              <textarea v-model="manifest.storyContext!.setNotes" class="ingest-textarea ingest-textarea--small" />
+              <textarea
+                v-model="manifest.storyContext!.setNotes"
+                class="ingest-textarea ingest-textarea--small"
+                placeholder="Shared motifs, recurring subjects, pacing, neighborhoods, or visual patterns"
+              />
             </label>
             <label>
               <span class="ingest-label">Caption tone</span>
-              <input v-model="manifest.storyContext!.captionTone" class="ingest-input" />
+              <input
+                v-model="manifest.storyContext!.captionTone"
+                class="ingest-input"
+                placeholder="Documentary, restrained, lyrical, clinical, deadpan, intimate"
+              />
             </label>
             <label>
               <span class="ingest-label">Privacy notes</span>
-              <textarea v-model="manifest.storyContext!.privacyNotes" class="ingest-textarea ingest-textarea--small" />
+              <textarea
+                v-model="manifest.storyContext!.privacyNotes"
+                class="ingest-textarea ingest-textarea--small"
+                placeholder="Do not infer identity, age, relationship, intent, or any sensitive context"
+              />
             </label>
           </div>
         </section>

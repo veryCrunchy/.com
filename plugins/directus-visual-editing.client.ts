@@ -8,11 +8,18 @@
  * In production (direct browser visit) this plugin does nothing — zero overhead.
  */
 export default defineNuxtPlugin(() => {
+  const config = useRuntimeConfig();
+  const directusUrl = String(config.public.directusUrl || "");
+  const directusOrigin = directusUrl ? new URL(directusUrl).origin : "";
+  const referrerOrigin = document.referrer ? new URL(document.referrer).origin : "";
   const inEditor = window !== window.parent;
-  if (!inEditor) return;
+
+  // Only enable editor integration when the page is actually framed by Directus.
+  if (!inEditor || !directusOrigin || referrerOrigin !== directusOrigin) return;
+
+  let connected = false;
 
   const html = document.documentElement;
-  html.setAttribute("data-directus-visual-editing", "");
 
   // Notify Directus that the page is ready to receive commands
   function ready() {
@@ -24,6 +31,8 @@ export default defineNuxtPlugin(() => {
     const { type } = event.data ?? {};
 
     if (type === "directus:connection") {
+      connected = true;
+      html.setAttribute("data-directus-visual-editing", "");
       ready();
     }
 
@@ -37,6 +46,8 @@ export default defineNuxtPlugin(() => {
   // Intercept clicks on elements marked with data-directus-field and send
   // the field context back to the Directus Visual Editor
   document.addEventListener("click", (e) => {
+    if (!connected) return;
+
     const target = e.target as HTMLElement;
     const fieldEl = target.closest("[data-directus-field]") as HTMLElement | null;
     if (!fieldEl) return;
