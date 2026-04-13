@@ -31,6 +31,37 @@ export interface DirectusAsset {
   filename_download?: string | null;
 }
 
+export interface DirectusLocation {
+  id: number;
+  slug: string;
+  title: string;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  description?: string | null;
+}
+
+export interface DirectusCameraBody {
+  id: number;
+  slug: string;
+  brand?: string | null;
+  model: string;
+  label?: string | null;
+}
+
+export interface DirectusLens {
+  id: number;
+  slug: string;
+  brand?: string | null;
+  model: string;
+  label?: string | null;
+  mount?: string | null;
+  focal_range?: string | null;
+  max_aperture?: string | null;
+}
+
 export interface DirectusSiteSettings {
   id: string;
   site_name?: string | null;
@@ -78,8 +109,20 @@ export interface DirectusPhoto {
   location?: string | null;
   camera?: string | null;
   lens?: string | null;
+  location_ref?: number | DirectusLocation | null;
+  camera_ref?: number | DirectusCameraBody | null;
+  lens_ref?: number | DirectusLens | null;
   featured?: boolean | null;
   tags?: string[] | null;
+  motion_frames?: DirectusPhotoMotionFrame[] | null;
+  motion_frame_count?: number | null;
+}
+
+export interface DirectusPhotoMotionFrame {
+  id: number;
+  photos_id: number | string;
+  frame_file?: string | DirectusAsset | null;
+  sort: number | null;
 }
 
 export interface DirectusProject {
@@ -122,12 +165,40 @@ export interface DirectusPhotoset {
   photos?: DirectusPhotosetPhoto[] | null;
 }
 
+export interface DirectusTimelinePhoto {
+  id: number;
+  timelines_id: number;
+  photos_id: string | DirectusPhoto;
+  sort: number | null;
+  chapter_title?: string | null;
+  story_text?: string | null;
+}
+
+export interface DirectusTimeline {
+  id: number;
+  status?: string | null;
+  slug: string;
+  title: string;
+  description?: string | null;
+  story?: string | null;
+  cover_image?: string | DirectusAsset | null;
+  published_at?: string | null;
+  tags?: string[] | null;
+  entries?: DirectusTimelinePhoto[] | null;
+}
+
 export interface DirectusSchema {
   site_settings: DirectusSiteSettings[];
   posts: DirectusPost[];
   photos: DirectusPhoto[];
+  photos_motion_frames: DirectusPhotoMotionFrame[];
+  photo_locations: DirectusLocation[];
+  camera_bodies: DirectusCameraBody[];
+  lenses: DirectusLens[];
   photosets: DirectusPhotoset[];
   photosets_photos: DirectusPhotosetPhoto[];
+  timelines: DirectusTimeline[];
+  timelines_photos: DirectusTimelinePhoto[];
   projects: DirectusProject[];
 }
 
@@ -139,6 +210,37 @@ export interface CmsAsset {
   downloadFilename: string | null;
   url: string;
   previewUrl: string | null;
+}
+
+export interface CmsLocationMeta {
+  id: number;
+  slug: string;
+  title: string;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  description: string | null;
+}
+
+export interface CmsCameraMeta {
+  id: number;
+  slug: string;
+  brand: string | null;
+  model: string;
+  label: string | null;
+}
+
+export interface CmsLensMeta {
+  id: number;
+  slug: string;
+  brand: string | null;
+  model: string;
+  label: string | null;
+  mount: string | null;
+  focalRange: string | null;
+  maxAperture: string | null;
 }
 
 export interface CmsSiteSettings {
@@ -205,7 +307,18 @@ export interface CmsPhotoSummary {
   location: string | null;
   camera: string | null;
   lens: string | null;
+  locationMeta: CmsLocationMeta | null;
+  cameraMeta: CmsCameraMeta | null;
+  lensMeta: CmsLensMeta | null;
   tags: string[];
+  image: CmsAsset | null;
+  hasMotion: boolean;
+  motionFrameCount: number;
+}
+
+export interface CmsMotionFrame {
+  id: number;
+  sort: number | null;
   image: CmsAsset | null;
 }
 
@@ -224,7 +337,37 @@ export interface CmsPhotoset extends CmsPhotosetSummary {
   photos: CmsPhotoSummary[];
 }
 
+export interface CmsTimelineSummary {
+  id: number;
+  slug: string;
+  title: string;
+  description: string | null;
+  story: string | null;
+  publishedAt: string | null;
+  tags: string[];
+  coverImage: CmsAsset | null;
+  photoCount: number;
+}
+
+export interface CmsTimelineEntry {
+  id: number;
+  sort: number | null;
+  chapterTitle: string | null;
+  storyText: string | null;
+  photo: CmsPhotoSummary | null;
+}
+
+export interface CmsTimeline extends CmsTimelineSummary {
+  entries: CmsTimelineEntry[];
+}
+
 export interface CmsSetRef {
+  id: number;
+  slug: string;
+  title: string;
+}
+
+export interface CmsTimelineRef {
   id: number;
   slug: string;
   title: string;
@@ -232,6 +375,8 @@ export interface CmsSetRef {
 
 export interface CmsPhoto extends CmsPhotoSummary {
   sets: CmsSetRef[];
+  timelines: CmsTimelineRef[];
+  motionFrames: CmsMotionFrame[];
 }
 
 export interface CmsHomePayload {

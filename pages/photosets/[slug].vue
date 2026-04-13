@@ -4,19 +4,53 @@
   const route = useRoute();
   const slug = computed(() => String(route.params.slug || ""));
 
-  const { data } = await useAsyncData(
+  const emptyPhotoset = {
+    id: 0,
+    slug: "",
+    title: "",
+    description: "",
+    publishedAt: null,
+    tags: [],
+    coverImage: null,
+    photoCount: 0,
+    photos: [],
+  };
+
+  const { data, pending } = await useAsyncData(
     () => `cms-photoset-${slug.value}`,
-    () => $fetch(`/api/cms/photosets/${slug.value}`)
+    () => $fetch(`/api/cms/photosets/${slug.value}`),
+    {
+      lazy: true,
+      default: () => ({ photoset: emptyPhotoset }),
+    }
   );
 
-  const photoset = computed(() => data.value.photoset);
+  const photoset = computed(() => data.value.photoset || emptyPhotoset);
+  const isLoading = computed(() => pending.value && !photoset.value.id);
+
+  const earliestDate = computed(() => {
+    const values = photoset.value.photos
+      .map((photo: { takenAt: string | null; publishedAt: string | null }) => photo.takenAt || photo.publishedAt)
+      .filter((value): value is string => Boolean(value))
+      .sort((left, right) => new Date(left).getTime() - new Date(right).getTime());
+
+    return values[0] || photoset.value.publishedAt || null;
+  });
+
+  const portraitCount = computed(
+    () =>
+      photoset.value.photos.filter(
+        (photo: { image: { width: number | null; height: number | null } | null }) =>
+          photo.image?.width && photo.image?.height && photo.image.height > photo.image.width
+      ).length
+  );
 
   useSeoMeta({
-    title: computed(() => `${photoset.value.title} | Sets | veryCrunchy`),
+    title: computed(() => `${photoset.value.title || "Photoset"} | Sets | veryCrunchy`),
     description: computed(
       () => photoset.value.description || "A photoset from veryCrunchy."
     ),
-    ogTitle: computed(() => photoset.value.title),
+    ogTitle: computed(() => photoset.value.title || "Photoset"),
     ogDescription: computed(() => photoset.value.description || ""),
     ogImage: computed(() => photoset.value.coverImage?.url || photoset.value.photos?.[0]?.image?.url || ""),
   });
@@ -36,51 +70,92 @@
     >
       <NuxtLink to="/photos" class="set-back">← Photos</NuxtLink>
 
-      <header class="set-head">
-        <div>
-          <h1 data-directus-field="title">{{ photoset.title }}</h1>
-          <p v-if="photoset.description" class="set-description" data-directus-field="description">
-            {{ photoset.description }}
-          </p>
-        </div>
-        <div class="set-meta">
+      <div v-if="isLoading" class="set-skeleton" aria-live="polite">
+        <div class="set-head">
           <div>
-            <span class="set-meta-label">Published</span>
-            <strong data-directus-field="published_at">{{ formatDate(photoset.publishedAt) }}</strong>
+            <div class="set-skeleton-block set-skeleton-kicker" />
+            <div class="set-skeleton-block set-skeleton-title" />
+            <div class="set-skeleton-block set-skeleton-line" />
+            <div class="set-skeleton-block set-skeleton-line set-skeleton-line-short" />
           </div>
-          <div>
-            <span class="set-meta-label">Photos</span>
-            <strong>{{ photoset.photos.length }}</strong>
+          <div class="set-meta">
+            <div class="set-skeleton-card">
+              <div class="set-skeleton-block set-skeleton-label" />
+              <div class="set-skeleton-block set-skeleton-value" />
+            </div>
+            <div class="set-skeleton-card">
+              <div class="set-skeleton-block set-skeleton-label" />
+              <div class="set-skeleton-block set-skeleton-value" />
+            </div>
           </div>
         </div>
-      </header>
-
-      <div v-if="photoset.photos.length" class="set-grid" data-directus-field="photos">
-        <NuxtLink
-          v-for="photo in photoset.photos"
-          :key="photo.id"
-          :to="`/photos/${photo.slug}?from=${photoset.slug}`"
-          class="set-photo"
-        >
-          <div class="set-photo-frame">
-            <img
-              v-if="photo.image"
-              :src="photo.image.previewUrl || photo.image.url"
-              :alt="photo.image.alt || photo.title"
-              loading="lazy"
-            />
-            <div v-else class="set-photo-placeholder" />
-          </div>
-          <div class="set-photo-caption">
-            <span>{{ photo.title }}</span>
-            <span v-if="photo.camera" class="set-photo-camera">{{ photo.camera }}</span>
-          </div>
-        </NuxtLink>
+        <div class="set-grid">
+          <article v-for="index in 4" :key="index" class="set-photo set-photo-skeleton" aria-hidden="true">
+            <div class="set-skeleton-block set-skeleton-image" />
+            <div class="set-photo-caption">
+              <div class="set-skeleton-block set-skeleton-line" />
+            </div>
+          </article>
+        </div>
       </div>
 
-      <div v-if="photoset.tags.length" class="set-tags">
-        <span v-for="tag in photoset.tags" :key="tag">{{ tag }}</span>
-      </div>
+      <template v-else>
+        <header class="set-head">
+          <div>
+            <span class="set-kicker">Photoset</span>
+            <h1 data-directus-field="title">{{ photoset.title }}</h1>
+            <p v-if="photoset.description" class="set-description" data-directus-field="description">
+              {{ photoset.description }}
+            </p>
+          </div>
+          <div class="set-meta">
+            <div>
+              <span class="set-meta-label">Published</span>
+              <strong data-directus-field="published_at">{{ formatDate(photoset.publishedAt) }}</strong>
+            </div>
+            <div>
+              <span class="set-meta-label">Photos</span>
+              <strong>{{ photoset.photos.length }}</strong>
+            </div>
+            <div>
+              <span class="set-meta-label">First Capture</span>
+              <strong>{{ formatDate(earliestDate) }}</strong>
+            </div>
+            <div>
+              <span class="set-meta-label">Portrait Frames</span>
+              <strong>{{ portraitCount }}</strong>
+            </div>
+          </div>
+        </header>
+
+        <div v-if="photoset.photos.length" class="set-grid" data-directus-field="photos">
+          <NuxtLink
+            v-for="photo in photoset.photos"
+            :key="photo.id"
+            :to="`/photos/${photo.slug}?from=${photoset.slug}`"
+            class="set-photo"
+          >
+            <div class="set-photo-frame">
+              <PhotoAsset
+                v-if="photo.image"
+                :src="photo.image.previewUrl || photo.image.url"
+                :alt="photo.image.alt || photo.title"
+                aspect-ratio="4 / 3"
+              />
+              <div v-else class="set-photo-placeholder" />
+            </div>
+            <div class="set-photo-caption">
+              <span>{{ photo.title }}</span>
+              <span v-if="photo.hasMotion" class="set-photo-camera">Motion {{ photo.motionFrameCount }}</span>
+              <span v-else-if="photo.camera" class="set-photo-camera">{{ photo.camera }}</span>
+            </div>
+          </NuxtLink>
+        </div>
+
+        <div v-if="photoset.tags.length" class="set-tags">
+          <span v-for="tag in photoset.tags" :key="tag">{{ tag }}</span>
+        </div>
+      </template>
     </section>
   </main>
 </template>
@@ -106,7 +181,6 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: #94a3b8;
-    transition: color 0.15s;
   }
 
   .set-back:hover {
@@ -117,6 +191,15 @@
     display: grid;
     gap: 1.2rem;
     margin-top: 1.4rem;
+  }
+
+  .set-kicker {
+    display: inline-flex;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #86efac;
   }
 
   .set-head h1 {
@@ -141,7 +224,8 @@
     align-content: start;
   }
 
-  .set-meta div {
+  .set-meta div,
+  .set-skeleton-card {
     padding: 0.95rem 1rem;
     border-radius: 1rem;
     border: 1px solid rgba(74, 222, 128, 0.16);
@@ -183,25 +267,13 @@
   }
 
   .set-photo-frame {
-    aspect-ratio: 4 / 3;
     overflow: hidden;
     background: rgba(15, 23, 42, 0.5);
   }
 
-  .set-photo-frame img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.3s ease;
-  }
-
-  .set-photo:hover .set-photo-frame img {
-    transform: scale(1.04);
-  }
-
   .set-photo-placeholder {
     width: 100%;
-    height: 100%;
+    aspect-ratio: 4 / 3;
     background: linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(15, 23, 42, 0.8));
   }
 
@@ -210,7 +282,7 @@
     justify-content: space-between;
     align-items: baseline;
     gap: 0.5rem;
-    padding: 0.65rem 0.85rem 0.75rem;
+    padding: 0.75rem 0.85rem 0.85rem;
   }
 
   .set-photo-caption span {
@@ -242,13 +314,68 @@
     font-size: 0.75rem;
   }
 
+  .set-skeleton-block {
+    border-radius: 0.95rem;
+    background:
+      linear-gradient(110deg, rgba(148, 163, 184, 0.08) 8%, rgba(148, 163, 184, 0.18) 18%, rgba(148, 163, 184, 0.08) 33%);
+    background-size: 200% 100%;
+    animation: set-page-shimmer 1.35s linear infinite;
+  }
+
+  .set-skeleton-kicker {
+    width: 8rem;
+    height: 0.85rem;
+  }
+
+  .set-skeleton-title {
+    margin-top: 0.8rem;
+    width: 60%;
+    height: 3rem;
+  }
+
+  .set-skeleton-line {
+    margin-top: 0.9rem;
+    width: 100%;
+    height: 1rem;
+  }
+
+  .set-skeleton-line-short {
+    width: 76%;
+  }
+
+  .set-skeleton-label {
+    width: 50%;
+    height: 0.8rem;
+  }
+
+  .set-skeleton-value {
+    margin-top: 0.7rem;
+    width: 72%;
+    height: 1.1rem;
+  }
+
+  .set-skeleton-image {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+  }
+
+  @keyframes set-page-shimmer {
+    from {
+      background-position: 200% 0;
+    }
+
+    to {
+      background-position: -200% 0;
+    }
+  }
+
   @media (min-width: 980px) {
     .set-page {
       padding-inline: 2rem;
     }
 
     .set-head {
-      grid-template-columns: minmax(0, 1.3fr) minmax(14rem, 0.6fr);
+      grid-template-columns: minmax(0, 1.3fr) minmax(14rem, 0.7fr);
       align-items: end;
     }
   }

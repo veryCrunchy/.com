@@ -91,3 +91,45 @@ Locally preview production build:
 ```bash
 pnpm run preview
 ```
+
+## Agent Photo Ingest
+
+There is a reusable photo ingest CLI for agent-driven uploads:
+
+```bash
+pnpm run photos:prepare -- --manifest /tmp/photo-manifest.json /absolute/path/to/photo-1.jpg /absolute/path/to/photo-2.jpg
+pnpm run photos:validate -- --manifest /tmp/photo-manifest.json
+pnpm run photos:upload -- --manifest /tmp/photo-manifest.json
+```
+
+Optional Directus schema helpers:
+
+```bash
+pnpm run photos:setup-motion
+pnpm run photos:setup-taxonomies
+pnpm run photos:setup-timelines
+```
+
+The intended workflow is:
+
+1. Run `photos:prepare` with exported image paths or `--paths-file`.
+2. Let the agent inspect the images and ask a couple of concise questions about the journey, story, and grouping.
+3. Fill in each photo's `title`, `description`, `slug`, and `setSlugs` in the generated manifest.
+4. Optionally add `sets` definitions for custom photoset titles and descriptions.
+5. Run `photos:validate`, then `photos:upload`.
+
+The manifest includes EXIF-derived metadata, suggested auto-set candidates, and a `storyContext` section the agent can use while writing titles and descriptions.
+
+TIFF uploads are converted to JPEG automatically before being sent to Directus.
+
+If an edited export is missing GPS or place fields, the ingest CLI will also look for matching original raw and XMP sidecar files under `PHOTO_INGEST_ORIGINAL_ROOTS` (defaults to `/mnt/h/DCIM`) and merge that metadata into the manifest and converted upload.
+
+If GPS exists but no readable place name does, `photos:prepare` will reverse geocode the coordinates through Nominatim and cache the result locally. You can override this with `PHOTO_INGEST_REVERSE_GEOCODE_URL`, `PHOTO_INGEST_REVERSE_GEOCODE_CACHE`, `PHOTO_INGEST_REVERSE_GEOCODE_USER_AGENT`, or disable it with `PHOTO_INGEST_REVERSE_GEOCODE=0`.
+
+If a photo should behave like a motion sequence, add `motionFrameSourcePaths` to that photo entry in the manifest. Those files will also be converted to JPEG when needed and linked as motion frames before the final hero image.
+
+You can also add structured metadata and story placement:
+
+- `locationMeta` for structured places
+- `cameraMeta` and `lensMeta` for lookup-backed gear metadata
+- `timelineEntries` for placing a photo inside one or more story timelines with optional `chapterTitle` and `storyText`

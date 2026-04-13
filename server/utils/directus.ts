@@ -3,6 +3,10 @@ import type { H3Event } from "h3";
 
 import type {
   CmsAsset,
+  CmsCameraMeta,
+  CmsLensMeta,
+  CmsLocationMeta,
+  CmsMotionFrame,
   CmsPhoto,
   CmsPhotoset,
   CmsPhotosetSummary,
@@ -12,8 +16,18 @@ import type {
   CmsSiteSettings,
   CmsProject,
   CmsSetRef,
+  CmsTimeline,
+  CmsTimelineEntry,
+  CmsTimelineRef,
+  CmsTimelineSummary,
+  DirectusCameraBody,
   DirectusAsset,
+  DirectusLens,
+  DirectusLocation,
   DirectusPhoto,
+  DirectusPhotoMotionFrame,
+  DirectusTimeline,
+  DirectusTimelinePhoto,
   DirectusPhotosetPhoto,
   DirectusPhotoset,
   DirectusPost,
@@ -74,7 +88,40 @@ const PHOTO_FIELDS = [
   "featured",
   "tags",
   {
+    location_ref: [
+      "id",
+      "slug",
+      "title",
+      "city",
+      "region",
+      "country",
+      "latitude",
+      "longitude",
+      "description",
+    ],
+  },
+  {
+    camera_ref: ["id", "slug", "brand", "model", "label"],
+  },
+  {
+    lens_ref: ["id", "slug", "brand", "model", "label", "mount", "focal_range", "max_aperture"],
+  },
+  {
     image: ["id", "title", "description", "width", "height", "filename_download"],
+  },
+] as const;
+
+const PHOTO_DETAIL_FIELDS = [
+  ...PHOTO_FIELDS,
+  {
+    motion_frames: [
+      "id",
+      "photos_id",
+      "sort",
+      {
+        frame_file: ["id", "title", "description", "width", "height", "filename_download"],
+      },
+    ],
   },
 ] as const;
 
@@ -108,6 +155,25 @@ const PHOTOSET_PHOTO_FIELDS = [
       "lens",
       "tags",
       {
+        location_ref: [
+          "id",
+          "slug",
+          "title",
+          "city",
+          "region",
+          "country",
+          "latitude",
+          "longitude",
+          "description",
+        ],
+      },
+      {
+        camera_ref: ["id", "slug", "brand", "model", "label"],
+      },
+      {
+        lens_ref: ["id", "slug", "brand", "model", "label", "mount", "focal_range", "max_aperture"],
+      },
+      {
         image: ["id", "title", "description", "width", "height", "filename_download"],
       },
     ],
@@ -116,6 +182,69 @@ const PHOTOSET_PHOTO_FIELDS = [
 
 const PHOTO_SET_LINK_FIELDS = [
   { photosets_id: ["id", "slug", "title", "status"] },
+] as const;
+
+const TIMELINE_BASE_FIELDS = [
+  "id",
+  "status",
+  "slug",
+  "title",
+  "description",
+  "story",
+  "published_at",
+  "tags",
+  {
+    cover_image: ["id", "title", "description", "width", "height", "filename_download"],
+  },
+] as const;
+
+const TIMELINE_ENTRY_FIELDS = [
+  "id",
+  "timelines_id",
+  "sort",
+  "chapter_title",
+  "story_text",
+  {
+    photos_id: [
+      "id",
+      "slug",
+      "title",
+      "description",
+      "published_at",
+      "taken_at",
+      "location",
+      "camera",
+      "lens",
+      "featured",
+      "tags",
+      {
+        location_ref: [
+          "id",
+          "slug",
+          "title",
+          "city",
+          "region",
+          "country",
+          "latitude",
+          "longitude",
+          "description",
+        ],
+      },
+      {
+        camera_ref: ["id", "slug", "brand", "model", "label"],
+      },
+      {
+        lens_ref: ["id", "slug", "brand", "model", "label", "mount", "focal_range", "max_aperture"],
+      },
+      {
+        image: ["id", "title", "description", "width", "height", "filename_download"],
+      },
+    ],
+  },
+] as const;
+
+const TIMELINE_LINK_FIELDS = [
+  { timelines_id: ["id", "slug", "title", "status"] },
 ] as const;
 
 const PROJECT_FIELDS = [
@@ -215,6 +344,61 @@ function normalizeAsset(
   };
 }
 
+function normalizeLocationMeta(
+  location?: DirectusLocation | number | null
+): CmsLocationMeta | null {
+  if (!location || typeof location !== "object") {
+    return null;
+  }
+
+  return {
+    id: location.id,
+    slug: location.slug,
+    title: location.title,
+    city: location.city || null,
+    region: location.region || null,
+    country: location.country || null,
+    latitude: location.latitude ?? null,
+    longitude: location.longitude ?? null,
+    description: location.description || null,
+  };
+}
+
+function normalizeCameraMeta(
+  camera?: DirectusCameraBody | number | null
+): CmsCameraMeta | null {
+  if (!camera || typeof camera !== "object") {
+    return null;
+  }
+
+  return {
+    id: camera.id,
+    slug: camera.slug,
+    brand: camera.brand || null,
+    model: camera.model,
+    label: camera.label || null,
+  };
+}
+
+function normalizeLensMeta(
+  lens?: DirectusLens | number | null
+): CmsLensMeta | null {
+  if (!lens || typeof lens !== "object") {
+    return null;
+  }
+
+  return {
+    id: lens.id,
+    slug: lens.slug,
+    brand: lens.brand || null,
+    model: lens.model,
+    label: lens.label || null,
+    mount: lens.mount || null,
+    focalRange: lens.focal_range || null,
+    maxAperture: lens.max_aperture || null,
+  };
+}
+
 export function normalizeSiteSettings(
   settings?: DirectusSiteSettings | null
 ): CmsSiteSettings {
@@ -298,6 +482,15 @@ export function normalizePhotoSummary(
   event: H3Event | undefined,
   photo: DirectusPhoto
 ): CmsPhotoSummary {
+  const motionFrameCount =
+    typeof photo.motion_frame_count === "number"
+      ? photo.motion_frame_count
+      : Array.isArray(photo.motion_frames)
+        ? photo.motion_frames.filter(
+            (frame) => frame.frame_file && typeof frame.frame_file === "object"
+          ).length
+        : 0;
+
   return {
     id: photo.id,
     slug: photo.slug,
@@ -305,10 +498,15 @@ export function normalizePhotoSummary(
     description: photo.description || null,
     publishedAt: photo.published_at || null,
     takenAt: photo.taken_at || null,
-    location: photo.location || null,
-    camera: photo.camera || null,
-    lens: photo.lens || null,
+    location: (typeof photo.location_ref === "object" ? photo.location_ref?.title : null) || photo.location || null,
+    camera: (typeof photo.camera_ref === "object" ? photo.camera_ref?.label || photo.camera_ref?.model : null) || photo.camera || null,
+    lens: (typeof photo.lens_ref === "object" ? photo.lens_ref?.label || photo.lens_ref?.model : null) || photo.lens || null,
+    locationMeta: normalizeLocationMeta(photo.location_ref),
+    cameraMeta: normalizeCameraMeta(photo.camera_ref),
+    lensMeta: normalizeLensMeta(photo.lens_ref),
     tags: photo.tags || [],
+    hasMotion: motionFrameCount > 0,
+    motionFrameCount,
     image: normalizeAsset(event, photo.image, {
       width: 2200,
       quality: 82,
@@ -321,14 +519,37 @@ export function normalizePhotoSummary(
   };
 }
 
+export function normalizeMotionFrames(
+  event: H3Event | undefined,
+  motionFrames?: DirectusPhotoMotionFrame[] | null
+): CmsMotionFrame[] {
+  return (motionFrames ?? [])
+    .filter((frame) => frame.frame_file && typeof frame.frame_file === "object")
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+    .map((frame) => ({
+      id: frame.id,
+      sort: frame.sort ?? null,
+      image: normalizeAsset(event, frame.frame_file as DirectusAsset, {
+        width: 2200,
+        quality: 82,
+      }, {
+        width: 1600,
+        quality: 76,
+      }),
+    }));
+}
+
 export function normalizePhoto(
   event: H3Event | undefined,
   photo: DirectusPhoto,
-  sets: CmsSetRef[] = []
+  sets: CmsSetRef[] = [],
+  timelines: CmsTimelineRef[] = []
 ): CmsPhoto {
   return {
     ...normalizePhotoSummary(event, photo),
     sets,
+    timelines,
+    motionFrames: normalizeMotionFrames(event, photo.motion_frames),
   };
 }
 
@@ -424,6 +645,8 @@ export async function readDirectusPhotos(
   options?: {
     limit?: number;
     featured?: boolean;
+    includeSets?: boolean;
+    order?: "asc" | "desc";
   }
 ) {
   const client = getDirectusClient(event);
@@ -442,12 +665,84 @@ export async function readDirectusPhotos(
           },
           ...(options?.featured ? { featured: { _eq: true } } : {}),
         },
-        sort: ["-featured", "-taken_at", "-published_at", "-date_created"] as never,
+        sort: (
+          options?.order === "asc"
+            ? ["featured", "taken_at", "published_at", "date_created"]
+            : ["-featured", "-taken_at", "-published_at", "-date_created"]
+        ) as never,
         limit: options?.limit ?? -1,
       })
     )) as DirectusPhoto[];
 
-    return photos.map((photo) => normalizePhotoSummary(event, photo));
+    const photoIds = photos.map((photo) => photo.id);
+    const motionLinks = photoIds.length
+      ? ((await client.request(
+          readItems("photos_motion_frames", {
+            fields: ["id", "photos_id"] as never,
+            filter: {
+              photos_id: {
+                _in: photoIds as never,
+              },
+            },
+            limit: -1,
+          })
+        )) as Array<{ id: number; photos_id: string | number }>)
+      : [];
+
+    const motionCountByPhotoId = new Map<string, number>();
+
+    for (const link of motionLinks) {
+      const key = String(link.photos_id);
+      motionCountByPhotoId.set(key, (motionCountByPhotoId.get(key) ?? 0) + 1);
+    }
+
+    const photosWithMotionCounts = photos.map((photo) => ({
+      ...photo,
+      motion_frame_count: motionCountByPhotoId.get(String(photo.id)) ?? 0,
+    }));
+
+    if (!options?.includeSets) {
+      return photosWithMotionCounts.map((photo) => normalizePhotoSummary(event, photo));
+    }
+
+    const links = (await client.request(
+      readItems("photosets_photos", {
+        fields: ["photos_id", ...PHOTO_SET_LINK_FIELDS] as never,
+        filter: {
+          photos_id: {
+            _in: photoIds as never,
+          },
+        },
+        limit: -1,
+      })
+    )) as Array<{
+      photos_id: string | number;
+      photosets_id: { id: number; slug: string; title: string; status?: string | null } | number;
+    }>;
+
+    const setsByPhotoId = new Map<string, CmsSetRef[]>();
+
+    for (const link of links) {
+      if (!link.photosets_id || typeof link.photosets_id !== "object") {
+        continue;
+      }
+
+      if (link.photosets_id.status !== "published") {
+        continue;
+      }
+
+      const group = setsByPhotoId.get(String(link.photos_id)) ?? [];
+      group.push({
+        id: link.photosets_id.id,
+        slug: link.photosets_id.slug,
+        title: link.photosets_id.title,
+      });
+      setsByPhotoId.set(String(link.photos_id), group);
+    }
+
+    return photosWithMotionCounts.map((photo) =>
+      normalizePhoto(event, photo, setsByPhotoId.get(String(photo.id)) ?? [])
+    );
   } catch {
     return [];
   }
@@ -466,7 +761,7 @@ export async function readDirectusPhotoBySlug(
   try {
     const [photo] = (await client.request(
       readItems("photos", {
-        fields: PHOTO_FIELDS as never,
+        fields: PHOTO_DETAIL_FIELDS as never,
         filter: {
           status: {
             _eq: "published",
@@ -501,7 +796,27 @@ export async function readDirectusPhotoBySlug(
         return { id: ps.id, slug: ps.slug, title: ps.title };
       });
 
-    return normalizePhoto(event, photo, sets);
+    const timelineLinks = (await client.request(
+      readItems("timelines_photos", {
+        fields: TIMELINE_LINK_FIELDS as never,
+        filter: { photos_id: { _eq: photo.id } },
+        limit: -1,
+      })
+    )) as Array<{ timelines_id: { id: number; slug: string; title: string; status?: string | null } | number }>;
+
+    const timelines: CmsTimelineRef[] = timelineLinks
+      .filter(
+        (row) =>
+          row.timelines_id &&
+          typeof row.timelines_id === "object" &&
+          (row.timelines_id as { status?: string | null }).status === "published"
+      )
+      .map((row) => {
+        const timeline = row.timelines_id as { id: number; slug: string; title: string };
+        return { id: timeline.id, slug: timeline.slug, title: timeline.title };
+      });
+
+    return normalizePhoto(event, photo, sets, timelines);
   } catch {
     return null;
   }
@@ -532,6 +847,58 @@ export function normalizePhotosetSummary(
       fit: "cover",
     }),
     photoCount: photos.length,
+  };
+}
+
+export function normalizeTimelineSummary(
+  event: H3Event | undefined,
+  timeline: DirectusTimeline
+): CmsTimelineSummary {
+  const entries = (timeline.entries ?? [])
+    .filter((entry) => entry.photos_id && typeof entry.photos_id === "object")
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+
+  return {
+    id: timeline.id,
+    slug: timeline.slug,
+    title: timeline.title,
+    description: timeline.description || null,
+    story: timeline.story || null,
+    publishedAt: timeline.published_at || null,
+    tags: timeline.tags || [],
+    coverImage: normalizeAsset(event, timeline.cover_image, {
+      width: 1800,
+      quality: 80,
+    }, {
+      width: 960,
+      height: 540,
+      quality: 74,
+      fit: "cover",
+    }),
+    photoCount: entries.length,
+  };
+}
+
+export function normalizeTimeline(
+  event: H3Event | undefined,
+  timeline: DirectusTimeline
+): CmsTimeline {
+  const entries: CmsTimelineEntry[] = (timeline.entries ?? [])
+    .filter((entry) => entry.photos_id && typeof entry.photos_id === "object")
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+    .map((entry) => ({
+      id: entry.id,
+      sort: entry.sort ?? null,
+      chapterTitle: entry.chapter_title || null,
+      storyText: entry.story_text || null,
+      photo: entry.photos_id && typeof entry.photos_id === "object"
+        ? normalizePhotoSummary(event, entry.photos_id as DirectusPhoto)
+        : null,
+    }));
+
+  return {
+    ...normalizeTimelineSummary(event, timeline),
+    entries,
   };
 }
 
@@ -586,6 +953,42 @@ async function attachPhotosToPhotosets(
   }));
 }
 
+async function attachPhotosToTimelines(
+  client: NonNullable<ReturnType<typeof getDirectusClient>>,
+  timelines: DirectusTimeline[]
+) {
+  if (!timelines.length) {
+    return timelines;
+  }
+
+  const timelineIds = timelines.map((timeline) => timeline.id);
+  const entries = (await client.request(
+    readItems("timelines_photos", {
+      fields: TIMELINE_ENTRY_FIELDS as never,
+      filter: {
+        timelines_id: {
+          _in: timelineIds,
+        },
+      },
+      sort: ["sort", "id"],
+      limit: -1,
+    })
+  )) as DirectusTimelinePhoto[];
+
+  const grouped = new Map<number, DirectusTimelinePhoto[]>();
+
+  for (const entry of entries) {
+    const group = grouped.get(entry.timelines_id) ?? [];
+    group.push(entry);
+    grouped.set(entry.timelines_id, group);
+  }
+
+  return timelines.map((timeline) => ({
+    ...timeline,
+    entries: grouped.get(timeline.id) ?? [],
+  }));
+}
+
 export async function readDirectusPhotosets(
   event: H3Event | undefined,
   options?: { limit?: number }
@@ -611,6 +1014,60 @@ export async function readDirectusPhotosets(
     return photosetsWithPhotos.map((ps) => normalizePhotosetSummary(event, ps));
   } catch {
     return [];
+  }
+}
+
+export async function readDirectusTimelines(
+  event: H3Event | undefined,
+  options?: { limit?: number }
+) {
+  const client = getDirectusClient(event);
+  if (!client) return [];
+
+  try {
+    const timelines = (await client.request(
+      readItems("timelines", {
+        fields: TIMELINE_BASE_FIELDS as never,
+        filter: { status: { _eq: "published" } },
+        sort: ["-published_at"] as never,
+        limit: options?.limit ?? -1,
+      })
+    )) as DirectusTimeline[];
+
+    const timelinesWithEntries = await attachPhotosToTimelines(client, timelines);
+    return timelinesWithEntries.map((timeline) => normalizeTimelineSummary(event, timeline));
+  } catch {
+    return [];
+  }
+}
+
+export async function readDirectusTimelineBySlug(
+  event: H3Event | undefined,
+  slug: string
+) {
+  const client = getDirectusClient(event);
+  if (!client) return null;
+
+  try {
+    const [timeline] = (await client.request(
+      readItems("timelines", {
+        fields: TIMELINE_BASE_FIELDS as never,
+        filter: {
+          status: { _eq: "published" },
+          slug: { _eq: slug },
+        },
+        limit: 1,
+      })
+    )) as DirectusTimeline[];
+
+    if (!timeline) {
+      return null;
+    }
+
+    const [timelineWithEntries] = await attachPhotosToTimelines(client, [timeline]);
+    return timelineWithEntries ? normalizeTimeline(event, timelineWithEntries) : null;
+  } catch {
+    return null;
   }
 }
 

@@ -35,7 +35,7 @@
           <NuxtLink
             to="/photos"
             class="nav-link"
-            :class="{ 'is-active': isActive('/photos') || isActive('/photosets') }"
+            :class="{ 'is-active': isActive('/photos') || isActive('/photosets') || isActive('/timelines') }"
           >
             <span data-directus-field="photos_label">{{ site.photosLabel }}</span>
           </NuxtLink>

@@ -11,7 +11,13 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "seed": "node scripts/seed.mjs"
+    "seed": "node scripts/seed.mjs",
+    "photos:setup-motion": "node scripts/setup-photo-motion.mjs",
+    "photos:setup-taxonomies": "node scripts/setup-photo-taxonomies.mjs",
+    "photos:setup-timelines": "node scripts/setup-timelines.mjs",
+    "photos:prepare": "node scripts/photo-ingest.mjs prepare",
+    "photos:validate": "node scripts/photo-ingest.mjs validate",
+    "photos:upload": "node scripts/photo-ingest.mjs upload"
   },
   "devDependencies": {
     "@nuxt/image": "^1.7.0",
