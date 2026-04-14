@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { computed } from "vue";
+  import { computed, watch } from "vue";
 
   const route = useRoute();
   const slug = computed(() => String(route.params.slug || ""));
@@ -21,9 +21,11 @@
     image: null,
     hasMotion: false,
     motionFrameCount: 0,
+    shotCount: 0,
     sets: [],
     timelines: [],
     motionFrames: [],
+    shots: [],
   };
 
   const { data, pending } = await useAsyncData(
@@ -70,17 +72,20 @@
     return setContext.value.photos[idx + 1];
   });
 
+  const activeStill = computed(() => stillGallery.value[selectedStillIndex.value] || stillGallery.value[0] || null);
+  const activeStillIsPrimary = computed(() => activeStill.value?.isPrimary !== false);
+
   const dimensionsLabel = computed(() => {
-    const width = photo.value.image?.width;
-    const height = photo.value.image?.height;
+    const width = activeStill.value?.image?.width;
+    const height = activeStill.value?.image?.height;
 
     if (!width || !height) return "Resolution pending";
     return `${width.toLocaleString()} × ${height.toLocaleString()}`;
   });
 
   const orientationLabel = computed(() => {
-    const width = photo.value.image?.width;
-    const height = photo.value.image?.height;
+    const width = activeStill.value?.image?.width;
+    const height = activeStill.value?.image?.height;
 
     if (!width || !height) return "Unknown format";
     if (width === height) return "Square frame";
@@ -88,8 +93,8 @@
   });
 
   const imageRatio = computed(() => {
-    const width = photo.value.image?.width;
-    const height = photo.value.image?.height;
+    const width = activeStill.value?.image?.width;
+    const height = activeStill.value?.image?.height;
 
     if (!width || !height) {
       return null;
@@ -99,8 +104,8 @@
   });
 
   const frameStyle = computed(() => {
-    const width = photo.value.image?.width;
-    const height = photo.value.image?.height;
+    const width = activeStill.value?.image?.width;
+    const height = activeStill.value?.image?.height;
     const ratio = imageRatio.value;
 
     if (!width || !height || !ratio) {
@@ -132,12 +137,69 @@
     return `Moment sequence · ${count} motion frame${count !== 1 ? "s" : ""}`;
   });
 
+  const shotLabel = computed(() => {
+    const count = photo.value.shotCount || 0;
+
+    if (!count) {
+      return null;
+    }
+
+    return `${count} shot${count !== 1 ? "s" : ""}`;
+  });
+
+  const stillGallery = computed(() => {
+    const primary = photo.value.image
+      ? [{
+          key: `primary-${photo.value.id || photo.value.slug}`,
+          label: "Main frame",
+          description: photo.value.description || null,
+          role: "primary",
+          image: photo.value.image,
+          isPrimary: true,
+        }]
+      : [];
+
+    const shots = (photo.value.shots || []).map((shot, index) => ({
+      key: `shot-${shot.id || index}`,
+      label: shot.title || `Shot ${index + 1}`,
+      description: shot.description || null,
+      role: shot.role || "alternate",
+      image: shot.image,
+      isPrimary: false,
+    }));
+
+    return [...primary, ...shots].filter((entry) => entry.image);
+  });
+
+  const selectedStillIndex = ref(0);
+
+  watch(
+    () => photo.value.slug,
+    () => {
+      selectedStillIndex.value = 0;
+    },
+    { immediate: true }
+  );
+
   const viewerOpen = ref(false);
   const viewerMode = ref<"still" | "motion">("still");
+  const viewerInitialIndex = ref(0);
+
+  const viewerGallery = computed(() =>
+    stillGallery.value.map((item) => ({
+      ...item,
+      motionFrames: item.isPrimary ? photo.value.motionFrames : [],
+    }))
+  );
 
   function openViewer(mode: "still" | "motion" = "still") {
+    viewerInitialIndex.value = mode === "motion" ? 0 : selectedStillIndex.value;
     viewerMode.value = mode;
     viewerOpen.value = true;
+  }
+
+  function selectStill(index: number) {
+    selectedStillIndex.value = index;
   }
 
   useSeoMeta({
@@ -213,6 +275,7 @@
               <span class="photo-entry-summary-pill">{{ formatDate(photo.takenAt || photo.publishedAt) }}</span>
               <span v-if="locationLabel" class="photo-entry-summary-pill">{{ locationLabel }}</span>
               <span class="photo-entry-summary-pill">{{ sequenceLabel }}</span>
+              <span v-if="shotLabel" class="photo-entry-summary-pill">{{ shotLabel }}</span>
             </div>
           </div>
           <div class="photo-entry-meta">
@@ -236,32 +299,59 @@
         </header>
 
         <div class="photo-entry-stage">
-          <div
-            v-if="photo.image"
-            class="photo-entry-frame"
-            :class="{ 'photo-entry-frame--sized': Boolean(imageRatio) }"
-            :style="frameStyle"
-            data-directus-collection="photos"
-            :data-directus-item="photo.id"
-            data-directus-field="image"
-          >
-            <MotionPhotoPlayer
-              v-if="photo.hasMotion"
-              :final-image="photo.image"
-              :motion-frames="photo.motionFrames"
-              :alt="photo.image.alt || photo.title"
-              :autoplay="false"
-              :play-on-hover="true"
-              :show-overlay-controls="false"
-            />
-            <PhotoAsset
-              v-else
-              :src="photo.image.url"
-              :alt="photo.image.alt || photo.title"
-              :aspect-ratio="photo.image.width && photo.image.height ? `${photo.image.width} / ${photo.image.height}` : null"
-              fit="contain"
-              loading="eager"
-            />
+          <div class="photo-entry-image-col">
+            <div
+              v-if="activeStill?.image"
+              class="photo-entry-frame"
+              :class="{ 'photo-entry-frame--sized': Boolean(imageRatio) }"
+              :style="frameStyle"
+              data-directus-collection="photos"
+              :data-directus-item="photo.id"
+              :data-directus-field="activeStillIsPrimary ? 'image' : 'shots'"
+            >
+              <MotionPhotoPlayer
+                v-if="photo.hasMotion && activeStillIsPrimary && photo.image"
+                :final-image="photo.image"
+                :motion-frames="photo.motionFrames"
+                :alt="photo.image.alt || photo.title"
+                :autoplay="false"
+                :play-on-hover="true"
+                :show-overlay-controls="false"
+              />
+              <PhotoAsset
+                v-else
+                :src="activeStill.image?.url"
+                :srcset="activeStill.image?.srcset"
+                sizes="(min-width: 1440px) 900px, (min-width: 980px) 65vw, 100vw"
+                :alt="activeStill.image?.alt || activeStill.label || photo.title"
+                :aspect-ratio="activeStill.image?.width && activeStill.image?.height ? `${activeStill.image.width} / ${activeStill.image.height}` : null"
+                fit="contain"
+                loading="eager"
+                fetchpriority="high"
+              />
+            </div>
+
+            <div v-if="stillGallery.length > 1" class="photo-entry-shot-strip">
+              <button
+                v-for="(still, index) in stillGallery"
+                :key="still.key"
+                type="button"
+                class="photo-entry-shot-thumb"
+                :class="{ 'photo-entry-shot-thumb--active': index === selectedStillIndex }"
+                :aria-label="still.label || `Frame ${index + 1}`"
+                @click="selectStill(index)"
+              >
+                <PhotoAsset
+                  :src="still.image?.previewUrl || still.image?.url"
+                  :alt="still.image?.alt || still.label || ''"
+                  aspect-ratio="3 / 2"
+                />
+              </button>
+            </div>
+
+            <p v-if="activeStill && !activeStillIsPrimary && activeStill.description" class="photo-entry-shot-caption">
+              {{ activeStill.description }}
+            </p>
           </div>
 
           <aside class="photo-entry-insights">
@@ -283,6 +373,10 @@
                 <li v-if="photo.hasMotion">
                   <span>Motion Frames</span>
                   <strong>{{ photo.motionFrameCount }}</strong>
+                </li>
+                <li v-if="photo.shotCount">
+                  <span>Shots</span>
+                  <strong>{{ photo.shotCount }}</strong>
                 </li>
                 <li>
                   <span>Tags</span>
@@ -306,8 +400,8 @@
                   @click="openViewer('motion')"
                 >Play motion</button>
                 <a
-                  v-if="photo.image?.url"
-                  :href="photo.image.url"
+                  v-if="activeStill?.image?.url"
+                  :href="activeStill.image.url"
                   target="_blank"
                   rel="noreferrer"
                   class="photo-entry-action"
@@ -321,6 +415,7 @@
             </div>
           </aside>
         </div>
+
 
         <div v-if="photo.tags.length" class="photo-entry-tags">
           <span v-for="tag in photo.tags" :key="tag">{{ tag }}</span>
@@ -349,10 +444,8 @@
         <ClientOnly>
           <PhotoViewerModal
             v-model:open="viewerOpen"
-            :image="photo.image"
-            :motion-frames="photo.motionFrames"
-            :title="photo.title"
-            :description="photo.description"
+            :gallery="viewerGallery"
+            :initial-index="viewerInitialIndex"
             :initial-mode="viewerMode"
           />
         </ClientOnly>
@@ -496,6 +589,54 @@
     font-size: 0.76rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+  }
+
+  .photo-entry-image-col {
+    display: grid;
+    align-content: start;
+    gap: 0.75rem;
+  }
+
+  .photo-entry-shot-strip {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-block: 0.1rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(74, 222, 128, 0.18) transparent;
+  }
+
+  .photo-entry-shot-thumb {
+    flex: 0 0 auto;
+    width: 5.5rem;
+    height: 3.7rem;
+    border-radius: 0.5rem;
+    border: 2px solid rgba(148, 163, 184, 0.12);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.18s, opacity 0.18s;
+    opacity: 0.65;
+  }
+
+  .photo-entry-shot-thumb:hover {
+    opacity: 1;
+    border-color: rgba(74, 222, 128, 0.38);
+  }
+
+  .photo-entry-shot-thumb--active {
+    opacity: 1;
+    border-color: rgba(74, 222, 128, 0.65);
+  }
+
+  .photo-entry-shot-thumb :deep(.photo-asset) {
+    width: 100%;
+    height: 100%;
+  }
+
+  .photo-entry-shot-caption {
+    color: #94a3b8;
+    line-height: 1.72;
+    font-size: 0.92rem;
   }
 
   .photo-entry-meta {

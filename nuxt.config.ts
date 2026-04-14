@@ -20,6 +20,37 @@ export default defineNuxtConfig({
     },
     preload: true,
   },
+  // Preconnect to Directus so image fetches start faster
+  app: {
+    head: {
+      link: process.env.NUXT_PUBLIC_DIRECTUS_URL
+        ? [
+            { rel: "preconnect", href: process.env.NUXT_PUBLIC_DIRECTUS_URL },
+            { rel: "dns-prefetch", href: process.env.NUXT_PUBLIC_DIRECTUS_URL },
+          ]
+        : [],
+    },
+  },
+  // Server-side SWR caching for CMS API routes
+  routeRules: {
+    "/api/cms/home": { cache: { maxAge: 300, swr: true } },
+    "/api/cms/photos": { cache: { maxAge: 300, swr: true } },
+    "/api/cms/photos-timeline": { cache: { maxAge: 600, swr: true } },
+    "/api/cms/photos/**": { cache: { maxAge: 600, swr: true } },
+    "/api/cms/photosets": { cache: { maxAge: 600, swr: true } },
+    "/api/cms/photosets/**": { cache: { maxAge: 600, swr: true } },
+    "/api/cms/timelines": { cache: { maxAge: 600, swr: true } },
+    "/api/cms/timelines/**": { cache: { maxAge: 600, swr: true } },
+    "/api/cms/posts": { cache: { maxAge: 300, swr: true } },
+    "/api/cms/posts/**": { cache: { maxAge: 600, swr: true } },
+    "/api/cms/sponsors/**": { cache: { maxAge: 1800, swr: true } },
+  },
+  // Allow @nuxt/image to reference Directus assets if NuxtImg/NuxtPicture is used in future
+  image: {
+    domains: process.env.NUXT_PUBLIC_DIRECTUS_URL
+      ? [process.env.NUXT_PUBLIC_DIRECTUS_URL.replace(/^https?:\/\//, "").split("/")[0] ?? ""]
+      : [],
+  },
   runtimeConfig: {
     // Server-only: admin token, only needed locally / for the seed script.
     // Do NOT set this in production — public access is handled via Directus policies.

@@ -8,6 +8,7 @@ import type {
   CmsLocationMeta,
   CmsMotionFrame,
   CmsPhoto,
+  CmsPhotoShot,
   CmsPhotoset,
   CmsPhotosetSummary,
   CmsPhotoSummary,
@@ -26,6 +27,7 @@ import type {
   DirectusLocation,
   DirectusPhoto,
   DirectusPhotoMotionFrame,
+  DirectusPhotoShot,
   DirectusTimeline,
   DirectusTimelinePhoto,
   DirectusPhotosetPhoto,
@@ -119,6 +121,19 @@ const PHOTO_FIELDS = [
       },
     ],
   },
+  {
+    shots: [
+      "id",
+      "photos_id",
+      "sort",
+      "role",
+      "title",
+      "description",
+      {
+        shot_file: ["id", "title", "description", "width", "height", "filename_download"],
+      },
+    ],
+  },
 ] as const;
 
 const PHOTO_DETAIL_FIELDS = [
@@ -183,6 +198,32 @@ const PHOTOSET_PHOTO_FIELDS = [
           "sort",
           {
             frame_file: ["id", "title", "description", "width", "height", "filename_download"],
+          },
+        ],
+      },
+      {
+        shots: [
+          "id",
+          "photos_id",
+          "sort",
+          "role",
+          "title",
+          "description",
+          {
+            shot_file: ["id", "title", "description", "width", "height", "filename_download"],
+          },
+        ],
+      },
+      {
+        shots: [
+          "id",
+          "photos_id",
+          "sort",
+          "role",
+          "title",
+          "description",
+          {
+            shot_file: ["id", "title", "description", "width", "height", "filename_download"],
           },
         ],
       },
@@ -338,11 +379,31 @@ export function buildDirectusAssetUrl(
   return `${directusUrl}/assets/${assetId}${qs ? `?${qs}` : ""}`;
 }
 
+function buildDirectusSrcset(
+  event: H3Event | undefined,
+  asset: string | DirectusAsset | null | undefined,
+  widths: number[],
+  baseParams?: Record<string, string | number | null | undefined>
+): string | null {
+  const assetId = typeof asset === "string" ? asset : asset?.id;
+  if (!assetId) return null;
+
+  const parts = widths
+    .map((w) => {
+      const url = buildDirectusAssetUrl(event, asset, { ...baseParams, width: w });
+      return url ? `${url} ${w}w` : null;
+    })
+    .filter(Boolean) as string[];
+
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
 function normalizeAsset(
   event: H3Event | undefined,
   asset: string | DirectusAsset | null | undefined,
   params?: Record<string, string | number | null | undefined>,
-  previewParams?: Record<string, string | number | null | undefined>
+  previewParams?: Record<string, string | number | null | undefined>,
+  srcsetWidths?: number[]
 ): CmsAsset | null {
   const directusAsset = typeof asset === "string" ? null : asset;
   const id = typeof asset === "string" ? asset : asset?.id;
@@ -353,6 +414,14 @@ function normalizeAsset(
     return null;
   }
 
+  const srcset = srcsetWidths
+    ? buildDirectusSrcset(event, asset, srcsetWidths, {
+        format: "auto",
+        withoutEnlargement: "true",
+        quality: params?.quality,
+      })
+    : null;
+
   return {
     id,
     alt: directusAsset?.description || directusAsset?.title || null,
@@ -361,6 +430,7 @@ function normalizeAsset(
     downloadFilename: directusAsset?.filename_download ?? null,
     url,
     previewUrl,
+    srcset,
   };
 }
 
@@ -484,7 +554,7 @@ export function normalizePostSummary(
       height: 540,
       quality: 74,
       fit: "cover",
-    }),
+    }, [480, 800, 1200, 1600]),
   };
 }
 
@@ -511,6 +581,15 @@ export function normalizePhotoSummary(
           ).length
         : 0;
 
+  const shotCount =
+    typeof photo.shot_count === "number"
+      ? photo.shot_count
+      : Array.isArray(photo.shots)
+        ? photo.shots.filter(
+            (shot) => shot.shot_file && typeof shot.shot_file === "object"
+          ).length
+        : 0;
+
   return {
     id: photo.id,
     slug: photo.slug,
@@ -528,6 +607,8 @@ export function normalizePhotoSummary(
     hasMotion: motionFrameCount > 0,
     motionFrameCount,
     motionFrames: normalizeMotionFrames(event, photo.motion_frames),
+    shotCount,
+    shots: normalizePhotoShots(event, photo.shots),
     image: normalizeAsset(event, photo.image, {
       width: 2200,
       quality: 82,
@@ -536,7 +617,7 @@ export function normalizePhotoSummary(
       height: 960,
       quality: 74,
       fit: "cover",
-    }),
+    }, [640, 960, 1400, 2200]),
   };
 }
 
@@ -551,12 +632,35 @@ export function normalizeMotionFrames(
       id: frame.id,
       sort: frame.sort ?? null,
       image: normalizeAsset(event, frame.frame_file as DirectusAsset, {
+        width: 1400,
+        quality: 80,
+      }, {
+        width: 720,
+        quality: 72,
+      }),
+    }));
+}
+
+export function normalizePhotoShots(
+  event: H3Event | undefined,
+  shots?: DirectusPhotoShot[] | null
+): CmsPhotoShot[] {
+  return (shots ?? [])
+    .filter((shot) => shot.shot_file && typeof shot.shot_file === "object")
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+    .map((shot) => ({
+      id: shot.id,
+      sort: shot.sort ?? null,
+      role: shot.role || null,
+      title: shot.title || null,
+      description: shot.description || null,
+      image: normalizeAsset(event, shot.shot_file as DirectusAsset, {
         width: 2200,
         quality: 82,
       }, {
         width: 1600,
         quality: 76,
-      }),
+      }, [640, 960, 1400, 2200]),
     }));
 }
 
@@ -868,7 +972,7 @@ export function normalizePhotosetSummary(
       height: 540,
       quality: 74,
       fit: "cover",
-    }),
+    }, [640, 960, 1400]),
     photoCount: photos.length,
   };
 }
@@ -897,7 +1001,7 @@ export function normalizeTimelineSummary(
       height: 540,
       quality: 74,
       fit: "cover",
-    }),
+    }, [640, 960, 1400]),
     photoCount: entries.length,
   };
 }

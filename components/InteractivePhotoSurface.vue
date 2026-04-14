@@ -26,6 +26,9 @@
   const motionReady = computed(
     () => props.photo.hasMotion && Array.isArray(props.photo.motionFrames) && props.photo.motionFrames.length > 0
   );
+  const shotReady = computed(
+    () => (props.photo.shotCount || 0) > 0
+  );
 
   function openViewer(mode: "still" | "motion" = "still") {
     viewerMode.value = mode;
@@ -66,6 +69,9 @@
       <div class="interactive-photo-actions">
         <span v-if="motionReady" class="interactive-photo-pill">
           {{ photo.motionFrameCount }} frame{{ photo.motionFrameCount !== 1 ? "s" : "" }}
+        </span>
+        <span v-if="shotReady" class="interactive-photo-pill">
+          {{ photo.shotCount }} shot{{ photo.shotCount !== 1 ? "s" : "" }}
         </span>
         <div class="interactive-photo-action-group">
           <button type="button" class="interactive-photo-action" @click.stop="openViewer('still')">

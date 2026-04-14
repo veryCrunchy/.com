@@ -1,22 +1,36 @@
 <script setup lang="ts">
-  import { computed, onBeforeUnmount, watch } from "vue";
+  import { computed, onBeforeUnmount, ref, watch } from "vue";
 
   import type { CmsAsset, CmsMotionFrame } from "~/types/directus";
+
+  type ViewerItem = {
+    key: string;
+    label?: string | null;
+    description?: string | null;
+    image: CmsAsset | null;
+    motionFrames?: CmsMotionFrame[];
+  };
 
   const props = withDefaults(
     defineProps<{
       open: boolean;
-      image: CmsAsset | null;
+      gallery?: ViewerItem[];
+      initialIndex?: number;
+      initialMode?: "still" | "motion";
+      // Legacy single-item fallback
+      image?: CmsAsset | null;
       motionFrames?: CmsMotionFrame[];
       title?: string | null;
       description?: string | null;
-      initialMode?: "still" | "motion";
     }>(),
     {
+      gallery: () => [],
+      initialIndex: 0,
       motionFrames: () => [],
       title: null,
       description: null,
       initialMode: "still",
+      image: null,
     }
   );
 
@@ -24,30 +38,51 @@
     (event: "update:open", value: boolean): void;
   }>();
 
+  const currentIndex = ref(0);
   const mode = ref<"still" | "motion">("still");
-  const hasMotion = computed(() => (props.motionFrames || []).some((frame) => frame.image));
   const canUseDom = import.meta.client;
-  const imageRatio = computed(() => {
-    const width = props.image?.width;
-    const height = props.image?.height;
 
-    if (!width || !height) {
+  const effectiveGallery = computed<ViewerItem[]>(() => {
+    if (props.gallery && props.gallery.length > 0) {
+      return props.gallery;
+    }
+
+    return [{
+      key: "single",
+      label: props.title,
+      description: props.description,
+      image: props.image,
+      motionFrames: props.motionFrames || [],
+    }];
+  });
+
+  const currentItem = computed(() => effectiveGallery.value[currentIndex.value] || effectiveGallery.value[0]);
+  const hasMultiple = computed(() => effectiveGallery.value.length > 1);
+  const hasPrev = computed(() => currentIndex.value > 0);
+  const hasNext = computed(() => currentIndex.value < effectiveGallery.value.length - 1);
+
+  const hasMotion = computed(() => (currentItem.value?.motionFrames || []).some((frame) => frame.image));
+
+  const imageRatio = computed(() => {
+    const img = currentItem.value?.image;
+
+    if (!img?.width || !img?.height) {
       return null;
     }
 
-    return width / height;
+    return img.width / img.height;
   });
+
   const mediaStyle = computed(() => {
-    const width = props.image?.width;
-    const height = props.image?.height;
+    const img = currentItem.value?.image;
     const ratio = imageRatio.value;
 
-    if (!width || !height || !ratio) {
+    if (!img?.width || !img?.height || !ratio) {
       return undefined;
     }
 
     return {
-      aspectRatio: `${width} / ${height}`,
+      aspectRatio: `${img.width} / ${img.height}`,
       "--photo-viewer-ratio": `${ratio}`,
     };
   });
@@ -56,9 +91,21 @@
     emit("update:open", false);
   }
 
+  function goTo(index: number) {
+    currentIndex.value = Math.max(0, Math.min(index, effectiveGallery.value.length - 1));
+
+    if (!hasMotion.value) {
+      mode.value = "still";
+    }
+  }
+
   function onKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
       closeViewer();
+    } else if (event.key === "ArrowLeft" && hasPrev.value) {
+      goTo(currentIndex.value - 1);
+    } else if (event.key === "ArrowRight" && hasNext.value) {
+      goTo(currentIndex.value + 1);
     }
   }
 
@@ -81,21 +128,14 @@
     () => props.open,
     (isOpen) => {
       if (isOpen) {
-        mode.value = props.initialMode === "motion" && hasMotion.value ? "motion" : "still";
+        currentIndex.value = props.initialIndex ?? 0;
+        const itemHasMotion = (effectiveGallery.value[currentIndex.value]?.motionFrames || []).some((f) => f.image);
+        mode.value = props.initialMode === "motion" && itemHasMotion ? "motion" : "still";
       }
 
       syncViewerSideEffects(isOpen);
     },
     { immediate: true }
-  );
-
-  watch(
-    () => props.initialMode,
-    (nextMode) => {
-      if (props.open) {
-        mode.value = nextMode === "motion" && hasMotion.value ? "motion" : "still";
-      }
-    }
   );
 
   onBeforeUnmount(() => {
@@ -110,8 +150,8 @@
         <div class="photo-viewer-shell">
           <div class="photo-viewer-topbar">
             <div>
-              <span class="photo-viewer-kicker">Viewer</span>
-              <h2 v-if="title">{{ title }}</h2>
+              <span class="photo-viewer-kicker">{{ hasMultiple ? `${currentIndex + 1} / ${effectiveGallery.length}` : "Viewer" }}</span>
+              <h2 v-if="currentItem?.label">{{ currentItem.label }}</h2>
             </div>
             <div class="photo-viewer-actions">
               <button
@@ -136,28 +176,65 @@
             </div>
           </div>
 
-          <div class="photo-viewer-stage">
-            <div class="photo-viewer-media" :style="mediaStyle">
-              <MotionPhotoPlayer
-                v-if="image && mode === 'motion' && hasMotion"
-                :key="`motion-${image.id}`"
-                :final-image="image"
-                :motion-frames="motionFrames"
-                :alt="title"
-                :autoplay="true"
-                :show-overlay-controls="true"
-                fit="contain"
-              />
-              <PhotoAsset
-                v-else-if="image"
-                :src="image.url"
-                :alt="image.alt || title || ''"
-                fit="contain"
-              />
+          <div class="photo-viewer-stage-wrap">
+            <div class="photo-viewer-stage">
+              <div class="photo-viewer-media" :style="mediaStyle">
+                <MotionPhotoPlayer
+                  v-if="currentItem?.image && mode === 'motion' && hasMotion"
+                  :key="`motion-${currentItem.image.id}`"
+                  :final-image="currentItem.image"
+                  :motion-frames="currentItem.motionFrames || []"
+                  :alt="currentItem.label || ''"
+                  :autoplay="true"
+                  :show-overlay-controls="true"
+                  fit="contain"
+                />
+                <PhotoAsset
+                  v-else-if="currentItem?.image"
+                  :src="currentItem.image.url"
+                  :srcset="currentItem.image.srcset"
+                  sizes="(min-width: 1600px) 1200px, (min-width: 1024px) 85vw, 95vw"
+                  :alt="currentItem.image.alt || currentItem.label || ''"
+                  fit="contain"
+                />
+              </div>
             </div>
+
+            <button
+              v-if="hasPrev"
+              type="button"
+              class="photo-viewer-nav photo-viewer-nav--prev"
+              aria-label="Previous"
+              @click="goTo(currentIndex - 1)"
+            >←</button>
+            <button
+              v-if="hasNext"
+              type="button"
+              class="photo-viewer-nav photo-viewer-nav--next"
+              aria-label="Next"
+              @click="goTo(currentIndex + 1)"
+            >→</button>
           </div>
 
-          <p v-if="description" class="photo-viewer-description">{{ description }}</p>
+          <p v-if="currentItem?.description" class="photo-viewer-description">{{ currentItem.description }}</p>
+
+          <div v-if="hasMultiple" class="photo-viewer-strip">
+            <button
+              v-for="(item, i) in effectiveGallery"
+              :key="item.key"
+              type="button"
+              class="photo-viewer-strip-thumb"
+              :class="{ 'is-active': i === currentIndex }"
+              :aria-label="item.label || `Frame ${i + 1}`"
+              @click="goTo(i)"
+            >
+              <PhotoAsset
+                :src="item.image?.previewUrl || item.image?.url"
+                :alt="item.image?.alt || item.label || ''"
+                aspect-ratio="3 / 2"
+              />
+            </button>
+          </div>
         </div>
       </div>
     </Transition>
@@ -242,6 +319,10 @@
     color: #e2e8f0;
   }
 
+  .photo-viewer-stage-wrap {
+    position: relative;
+  }
+
   .photo-viewer-stage {
     min-height: min(68dvh, 48rem);
     display: grid;
@@ -251,6 +332,77 @@
     border-radius: 1.2rem;
     border: 1px solid rgba(148, 163, 184, 0.12);
     background: rgba(4, 6, 7, 0.82);
+  }
+
+  .photo-viewer-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 2.8rem;
+    height: 2.8rem;
+    border-radius: 50%;
+    border: 1px solid rgba(74, 222, 128, 0.22);
+    background: rgba(8, 15, 10, 0.82);
+    color: #86efac;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+    backdrop-filter: blur(6px);
+  }
+
+  .photo-viewer-nav:hover {
+    background: rgba(34, 197, 94, 0.18);
+    border-color: rgba(134, 239, 172, 0.4);
+    color: #d1fae5;
+  }
+
+  .photo-viewer-nav--prev {
+    left: 0.75rem;
+  }
+
+  .photo-viewer-nav--next {
+    right: 0.75rem;
+  }
+
+  .photo-viewer-strip {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    justify-content: center;
+    padding-block: 0.1rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(74, 222, 128, 0.18) transparent;
+  }
+
+  .photo-viewer-strip-thumb {
+    flex: 0 0 auto;
+    width: 4.8rem;
+    height: 3.2rem;
+    border-radius: 0.45rem;
+    border: 2px solid rgba(148, 163, 184, 0.12);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s, opacity 0.15s;
+    opacity: 0.52;
+  }
+
+  .photo-viewer-strip-thumb:hover {
+    opacity: 0.85;
+    border-color: rgba(74, 222, 128, 0.32);
+  }
+
+  .photo-viewer-strip-thumb.is-active {
+    opacity: 1;
+    border-color: rgba(74, 222, 128, 0.65);
+  }
+
+  .photo-viewer-strip-thumb :deep(.photo-asset) {
+    width: 100%;
+    height: 100%;
   }
 
   .photo-viewer-media {

@@ -685,6 +685,7 @@ async function prepareManifest(paths, options) {
       featured: false,
       status: defaultStatus,
       setSlugs: [],
+      shots: [],
       motionFrameSourcePaths: [],
       timelineEntries: [],
       notes: "",
@@ -848,6 +849,29 @@ function validateManifestData(manifest) {
 
     if (!Array.isArray(photo.setSlugs)) {
       errors.push(`Photo setSlugs must be an array: ${photo.sourcePath}`);
+    }
+
+    if (!Array.isArray(photo.shots)) {
+      errors.push(`Photo shots must be an array: ${photo.sourcePath}`);
+    } else {
+      for (const shot of photo.shots) {
+        const shotSourcePath = String(shot?.sourcePath || "").trim();
+
+        if (!shotSourcePath) {
+          errors.push(`Photo shot is missing sourcePath: ${photo.sourcePath}`);
+          continue;
+        }
+
+        if (!existsSync(shotSourcePath)) {
+          errors.push(`Shot file is missing: ${shotSourcePath}`);
+        }
+
+        const normalizedRole = shot?.role ? slugify(String(shot.role)) : "alternate";
+
+        if (shot?.role && normalizedRole !== shot.role) {
+          errors.push(`Photo shot role must already be normalized: ${photo.sourcePath} -> ${shot.role}`);
+        }
+      }
     }
 
     if (!Array.isArray(photo.motionFrameSourcePaths)) {
@@ -1449,6 +1473,35 @@ async function readExistingMotionFrames(photoId) {
   return response.data || [];
 }
 
+async function readExistingPhotoShots(photoId) {
+  const params = new URLSearchParams();
+  params.set("filter[photos_id][_eq]", String(photoId));
+  params.set("fields", "id");
+  params.set("limit", "-1");
+  const response = await fetchJson("GET", `/items/photos_shots?${params.toString()}`);
+  return response.data || [];
+}
+
+async function replacePhotoShots(photoId, shots) {
+  const existing = await readExistingPhotoShots(photoId);
+
+  for (const row of existing) {
+    await fetchJson("DELETE", `/items/photos_shots/${row.id}`);
+  }
+
+  for (let index = 0; index < shots.length; index += 1) {
+    const shot = shots[index];
+    await fetchJson("POST", "/items/photos_shots", {
+      photos_id: photoId,
+      shot_file: shot.fileId,
+      sort: index + 1,
+      role: shot.role || "alternate",
+      title: shot.title || null,
+      description: shot.description || null,
+    });
+  }
+}
+
 async function replaceMotionFrames(photoId, frameFileIds) {
   const existing = await readExistingMotionFrames(photoId);
 
@@ -1492,7 +1545,7 @@ async function runPrepare(options, positionals) {
   console.log(`Prepared manifest: ${manifestPath}`);
   console.log(`Photos: ${manifest.photos.length}`);
   console.log(`Auto set candidates: ${manifest.autoSetCandidates.length}`);
-  console.log("Next: inspect the images, ask the photographer a couple of questions, fill in titles/descriptions/setSlugs, then run validate/upload.");
+  console.log("Next: inspect the images, ask the photographer a couple of questions, fill in titles/descriptions/setSlugs/shots, then run validate/upload.");
 }
 
 async function runValidate(options) {
@@ -1529,7 +1582,7 @@ async function runUpload(options) {
     for (const photo of manifest.photos) {
       const displaySlug = photo.targetPhotoSlug || photo.slug || photo.sourcePath;
       const targetSuffix = photo.targetPhotoSlug ? ` -> existing:${photo.targetPhotoSlug}` : "";
-      console.log(`- photo ${displaySlug} <= ${photo.sourcePath}${photo.motionFrameSourcePaths?.length ? ` (+${photo.motionFrameSourcePaths.length} motion frame(s))` : ""}${targetSuffix}`);
+      console.log(`- photo ${displaySlug} <= ${photo.sourcePath}${photo.shots?.length ? ` (+${photo.shots.length} shot(s))` : ""}${photo.motionFrameSourcePaths?.length ? ` (+${photo.motionFrameSourcePaths.length} motion frame(s))` : ""}${targetSuffix}`);
     }
     for (const setDefinition of setDefinitions) {
       const memberCount = membership.get(setDefinition.slug)?.length || 0;
@@ -1573,6 +1626,7 @@ async function runUpload(options) {
       });
     }
     const motionFrameIds = [];
+    const shotRecords = [];
     const motionLabelBase = String(photo.title || item.slug || photo.targetPhotoSlug || photo.slug || "Photo").trim();
 
     for (const [index, framePath] of (photo.motionFrameSourcePaths || []).entries()) {
@@ -1584,8 +1638,29 @@ async function runUpload(options) {
       motionFrameIds.push(frameId);
     }
 
+    for (const [index, shot] of (photo.shots || []).entries()) {
+      const roleLabel = String(shot.role || "alternate").trim() || "alternate";
+      const shotTitle = String(shot.title || "").trim();
+      const fileId = await uploadDirectusPath(
+        shot.sourcePath,
+        shotTitle || `${motionLabelBase} ${titleCaseFromSlug(roleLabel)} ${index + 1}`,
+        String(shot.description || "").trim() || `${titleCaseFromSlug(roleLabel)} shot ${index + 1} for ${motionLabelBase}.`
+      );
+
+      shotRecords.push({
+        fileId,
+        role: slugify(roleLabel) || "alternate",
+        title: shotTitle || null,
+        description: String(shot.description || "").trim() || null,
+      });
+    }
+
     if (motionFrameIds.length) {
       await replaceMotionFrames(item.id, motionFrameIds);
+    }
+
+    if (shotRecords.length) {
+      await replacePhotoShots(item.id, shotRecords);
     }
 
     uploadedPhotos.push({
@@ -1600,7 +1675,7 @@ async function runUpload(options) {
       slug: item.slug,
     });
 
-    console.log(existingTarget ? `Attached motion to photo: ${item.slug}` : `Uploaded photo: ${item.slug}`);
+    console.log(existingTarget ? `Updated linked media on photo: ${item.slug}` : `Uploaded photo: ${item.slug}`);
   }
 
   for (const setDefinition of setDefinitions) {

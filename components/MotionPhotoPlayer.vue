@@ -21,8 +21,8 @@
       motionFrames: () => [],
       alt: null,
       fit: "contain",
-      intervalMs: 110,
-      transitionMs: 180,
+      intervalMs: 130,
+      transitionMs: 55,
       finalFrameHoldMs: 1400,
       frameDurationsMs: () => [],
       autoplay: true,
@@ -31,12 +31,21 @@
     }
   );
 
+  // ─── Refs ────────────────────────────────────────────────────────────────────
+
   const activeIndex = ref(0);
   const isPlaying = ref(false);
   const timer = ref<ReturnType<typeof setTimeout> | null>(null);
   const transitionTimer = ref<ReturnType<typeof setTimeout> | null>(null);
   const previousFrameIndex = ref<number | null>(null);
   const isTransitioning = ref(false);
+
+  // Preload tracking
+  const framesReady = ref(false);
+  const isPreloading = ref(false);
+  const pendingPlay = ref(false);
+
+  // ─── Derived ─────────────────────────────────────────────────────────────────
 
   const frames = computed(() => {
     const motion = (props.motionFrames || [])
@@ -48,13 +57,11 @@
 
   const currentFrame = computed(() => frames.value[activeIndex.value] || props.finalImage);
   const previousFrame = computed(() => {
-    if (previousFrameIndex.value === null) {
-      return null;
-    }
-
+    if (previousFrameIndex.value === null) return null;
     return frames.value[previousFrameIndex.value] || null;
   });
   const hasMotion = computed(() => frames.value.length > 1);
+
   const playbackDurations = computed(() => {
     const lastIndex = frames.value.length - 1;
     const lastMotionIndex = Math.max(0, lastIndex - 1);
@@ -71,15 +78,18 @@
       }
 
       if (index === lastMotionIndex) {
-        return Math.max(props.intervalMs + 70, 180);
+        return Math.max(props.intervalMs + 50, 160);
       }
 
       return props.intervalMs;
     });
   });
+
   const transitionStyle = computed(() => ({
     "--motion-transition-ms": `${props.transitionMs}ms`,
   }));
+
+  // ─── Playback helpers ─────────────────────────────────────────────────────────
 
   function clearTimer() {
     if (timer.value) {
@@ -107,9 +117,7 @@
     activeIndex.value = nextIndex;
     isTransitioning.value = true;
 
-    transitionTimer.value = setTimeout(() => {
-      finishTransition();
-    }, props.transitionMs);
+    transitionTimer.value = setTimeout(finishTransition, props.transitionMs);
   }
 
   function stepPlayback() {
@@ -137,9 +145,7 @@
   }
 
   function playSequence() {
-    if (!hasMotion.value) {
-      return;
-    }
+    if (!hasMotion.value || !framesReady.value) return;
 
     clearTimer();
     finishTransition();
@@ -155,30 +161,79 @@
     activeIndex.value = Math.max(0, frames.value.length - 1);
   }
 
+  // ─── Preloading ───────────────────────────────────────────────────────────────
+
+  function decodeImage(url: string): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const img = new window.Image();
+      img.src = url;
+      img.decode()
+        .then(() => resolve())
+        .catch(() => resolve()); // don't block on errors
+    });
+  }
+
+  async function preloadAllFrames(): Promise<void> {
+    if (!import.meta.client || frames.value.length === 0) {
+      framesReady.value = true;
+      return;
+    }
+
+    isPreloading.value = true;
+
+    try {
+      await Promise.all(frames.value.map((frame) => decodeImage(frame.url)));
+    } finally {
+      framesReady.value = true;
+      isPreloading.value = false;
+
+      if (pendingPlay.value) {
+        pendingPlay.value = false;
+        playSequence();
+      }
+    }
+  }
+
+  // ─── Hover ────────────────────────────────────────────────────────────────────
+
   function handleMouseEnter() {
-    if (props.playOnHover && hasMotion.value) {
+    if (!props.playOnHover || !hasMotion.value) return;
+
+    if (framesReady.value) {
       playSequence();
+    } else {
+      pendingPlay.value = true;
     }
   }
 
   function handleMouseLeave() {
-    if (props.playOnHover && hasMotion.value) {
-      jumpToFinalFrame();
-    }
+    if (!props.playOnHover || !hasMotion.value) return;
+
+    pendingPlay.value = false;
+    jumpToFinalFrame();
   }
 
-  defineExpose({
-    playSequence,
-    jumpToFinalFrame,
-  });
+  defineExpose({ playSequence, jumpToFinalFrame });
+
+  // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
   watch(
     () => frames.value.map((frame) => frame.id).join(","),
     () => {
+      framesReady.value = false;
+      pendingPlay.value = false;
       jumpToFinalFrame();
-      if (props.autoplay && hasMotion.value) {
-        playSequence();
+
+      if (!hasMotion.value) {
+        framesReady.value = true;
+        return;
       }
+
+      if (props.autoplay) {
+        pendingPlay.value = true;
+      }
+
+      preloadAllFrames();
     },
     { immediate: true }
   );
@@ -207,6 +262,8 @@
         class="motion-photo-player-image"
         :src="currentFrame.url"
         :alt="alt || currentFrame.alt || ''"
+        decoding="async"
+        fetchpriority="high"
       />
 
       <img
@@ -215,15 +272,26 @@
         :class="{ 'motion-photo-player-image--fading': isTransitioning }"
         :src="previousFrame.url"
         :alt="alt || previousFrame.alt || ''"
+        decoding="async"
+        aria-hidden="true"
       />
     </div>
 
+    <Transition name="motion-loading-fade">
+      <div v-if="isPreloading" class="motion-photo-player-loading" aria-hidden="true" />
+    </Transition>
+
     <div v-if="hasMotion && showOverlayControls" class="motion-photo-player-overlay">
       <span class="motion-photo-player-badge">
-        {{ isPlaying ? `Frame ${activeIndex + 1} / ${frames.length}` : `Moment ${frames.length - 1} + final` }}
+        {{ isPlaying ? `Frame ${activeIndex + 1} / ${frames.length}` : `Moment sequence · ${frames.length - 1} frames` }}
       </span>
-      <button type="button" class="motion-photo-player-button" @click="playSequence">
-        Replay moment
+      <button
+        type="button"
+        class="motion-photo-player-button"
+        :disabled="isPreloading"
+        @click="playSequence"
+      >
+        {{ isPreloading ? "Loading…" : "Replay moment" }}
       </button>
     </div>
   </div>
@@ -317,7 +385,43 @@
     cursor: pointer;
   }
 
-  .motion-photo-player-button:hover {
-    background: rgba(34, 197, 94, 0.18);
+  .motion-photo-player-loading {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3;
+    border-radius: inherit;
+    background: linear-gradient(
+      110deg,
+      transparent 0%,
+      rgba(74, 222, 128, 0.04) 40%,
+      rgba(74, 222, 128, 0.09) 50%,
+      rgba(74, 222, 128, 0.04) 60%,
+      transparent 100%
+    );
+    background-size: 240% 100%;
+    animation: motion-player-shimmer 1.4s linear infinite;
   }
+
+  @keyframes motion-player-shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+
+  .motion-loading-fade-enter-active,
+  .motion-loading-fade-leave-active {
+    transition: opacity 0.25s ease;
+  }
+
+  .motion-loading-fade-enter-from,
+  .motion-loading-fade-leave-to {
+    opacity: 0;
+  }
+
+  .motion-photo-player-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+
   </style>

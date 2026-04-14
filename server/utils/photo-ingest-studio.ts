@@ -137,8 +137,9 @@ function normalizeStudioPath(value: string) {
   const windowsDriveMatch = trimmed.match(/^([a-zA-Z]):[\\/](.*)$/);
 
   if (windowsDriveMatch) {
-    const drive = windowsDriveMatch[1].toLowerCase();
-    const rest = windowsDriveMatch[2]
+    const [, driveLetter = "", remainder = ""] = windowsDriveMatch;
+    const drive = driveLetter.toLowerCase();
+    const rest = remainder
       .replace(/\\+/g, "/")
       .replace(/^\/+/, "");
 
@@ -198,9 +199,11 @@ function parseMomentStem(value: string): MomentMatch | null {
     return null;
   }
 
+  const [, token = "", baseStem = ""] = match;
+
   return {
-    token: match[1].toLowerCase(),
-    baseStem: match[2],
+    token: token.toLowerCase(),
+    baseStem,
   };
 }
 
@@ -260,9 +263,17 @@ function detectMomentSequences(manifest: StudioManifest) {
     });
 
     const middle = sorted[Math.floor(sorted.length / 2)];
+    if (!middle) {
+      continue;
+    }
+
     const matchingBaseKey = `${dirname(middle.sourcePath || "")}:${String(middle.__momentBaseStem || "")}`.toLowerCase();
     const basePhoto = byBaseStem.get(matchingBaseKey);
     const heroPhoto = basePhoto || middle;
+
+    if (!heroPhoto) {
+      continue;
+    }
 
     const motionFrameSourcePaths = sorted
       .map((photo) => String(photo.sourcePath || "").trim())
@@ -933,6 +944,18 @@ export function applyManifestFormEdits(manifest: StudioManifest) {
         : [],
       setSlugs: Array.isArray(photo.setSlugs)
         ? photo.setSlugs.map((tag) => slugify(String(tag))).filter(Boolean)
+        : [],
+      shots: Array.isArray(photo.shots)
+        ? photo.shots.map((rawShot) => {
+            const shot = rawShot as Record<string, any>;
+
+            return {
+              sourcePath: normalizeStudioPath(String(shot.sourcePath || "")),
+              role: slugify(String(shot.role || "alternate")) || "alternate",
+              title: String(shot.title || "").trim(),
+              description: String(shot.description || "").trim(),
+            };
+          }).filter((shot) => shot.sourcePath)
         : [],
       motionFrameSourcePaths: Array.isArray(photo.motionFrameSourcePaths)
         ? [...new Set(photo.motionFrameSourcePaths.map((pathValue) => normalizeStudioPath(String(pathValue || ""))).filter(Boolean))]

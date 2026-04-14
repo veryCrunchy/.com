@@ -116,6 +116,8 @@ export interface DirectusPhoto {
   tags?: string[] | null;
   motion_frames?: DirectusPhotoMotionFrame[] | null;
   motion_frame_count?: number | null;
+  shots?: DirectusPhotoShot[] | null;
+  shot_count?: number | null;
 }
 
 export interface DirectusPhotoMotionFrame {
@@ -123,6 +125,16 @@ export interface DirectusPhotoMotionFrame {
   photos_id: number | string;
   frame_file?: string | DirectusAsset | null;
   sort: number | null;
+}
+
+export interface DirectusPhotoShot {
+  id: number;
+  photos_id: number | string;
+  shot_file?: string | DirectusAsset | null;
+  sort: number | null;
+  role?: string | null;
+  title?: string | null;
+  description?: string | null;
 }
 
 export interface DirectusProject {
@@ -192,6 +204,7 @@ export interface DirectusSchema {
   posts: DirectusPost[];
   photos: DirectusPhoto[];
   photos_motion_frames: DirectusPhotoMotionFrame[];
+  photos_shots: DirectusPhotoShot[];
   photo_locations: DirectusLocation[];
   camera_bodies: DirectusCameraBody[];
   lenses: DirectusLens[];
@@ -210,6 +223,7 @@ export interface CmsAsset {
   downloadFilename: string | null;
   url: string;
   previewUrl: string | null;
+  srcset: string | null;
 }
 
 export interface CmsLocationMeta {
@@ -315,6 +329,8 @@ export interface CmsPhotoSummary {
   hasMotion: boolean;
   motionFrameCount: number;
   motionFrames: CmsMotionFrame[];
+  shotCount: number;
+  shots: CmsPhotoShot[];
   sets?: CmsSetRef[];
   timelines?: CmsTimelineRef[];
 }
@@ -322,6 +338,15 @@ export interface CmsPhotoSummary {
 export interface CmsMotionFrame {
   id: number;
   sort: number | null;
+  image: CmsAsset | null;
+}
+
+export interface CmsPhotoShot {
+  id: number;
+  sort: number | null;
+  role: string | null;
+  title: string | null;
+  description: string | null;
   image: CmsAsset | null;
 }
 
@@ -380,6 +405,7 @@ export interface CmsPhoto extends CmsPhotoSummary {
   sets: CmsSetRef[];
   timelines: CmsTimelineRef[];
   motionFrames: CmsMotionFrame[];
+  shots: CmsPhotoShot[];
 }
 
 export interface CmsHomePayload {

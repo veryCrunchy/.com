@@ -106,6 +106,7 @@ Optional Directus schema helpers:
 
 ```bash
 pnpm run photos:setup-motion
+pnpm run photos:setup-shots
 pnpm run photos:setup-taxonomies
 pnpm run photos:setup-timelines
 ```
@@ -127,6 +128,8 @@ If an edited export is missing GPS or place fields, the ingest CLI will also loo
 If GPS exists but no readable place name does, `photos:prepare` will reverse geocode the coordinates through Nominatim and cache the result locally. You can override this with `PHOTO_INGEST_REVERSE_GEOCODE_URL`, `PHOTO_INGEST_REVERSE_GEOCODE_CACHE`, `PHOTO_INGEST_REVERSE_GEOCODE_USER_AGENT`, or disable it with `PHOTO_INGEST_REVERSE_GEOCODE=0`.
 
 If a photo should behave like a motion sequence, add `motionFrameSourcePaths` to that photo entry in the manifest. Those files will also be converted to JPEG when needed and linked as motion frames before the final hero image.
+
+If a photo needs attached still variants under the same slug, add a `shots` array to that photo entry. Each shot can include `sourcePath`, `role`, `title`, and `description`. This is intended for alternates, details, and nearby frames that belong to one published photo without turning into a full set.
 
 You can also add structured metadata and story placement:
 

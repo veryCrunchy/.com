@@ -23,11 +23,19 @@
     description: string;
     tags: string[];
     setSlugs: string[];
+    shots?: IngestShot[];
     motionFrameSourcePaths?: string[];
     location?: string | null;
     camera?: string | null;
     lens?: string | null;
     takenAt?: string | null;
+  };
+
+  type IngestShot = {
+    sourcePath: string;
+    role?: string;
+    title?: string;
+    description?: string;
   };
 
   type IngestSet = {
@@ -77,6 +85,9 @@
 
   const photoCount = computed(() => manifest.value?.photos?.length || 0);
   const setCount = computed(() => manifest.value?.sets?.length || 0);
+  const shotPhotoCount = computed(
+    () => manifest.value?.photos?.filter((photo) => (photo.shots || []).length > 0).length || 0
+  );
   const motionPhotoCount = computed(
     () => manifest.value?.photos?.filter((photo) => (photo.motionFrameSourcePaths || []).length > 0).length || 0
   );
@@ -233,6 +244,14 @@
             previousSlugs: Array.isArray(photo.previousSlugs) ? photo.previousSlugs : [],
             tags: Array.isArray(photo.tags) ? photo.tags : [],
             setSlugs: Array.isArray(photo.setSlugs) ? photo.setSlugs : [],
+            shots: Array.isArray(photo.shots)
+              ? photo.shots.map((shot) => ({
+                  sourcePath: typeof shot.sourcePath === "string" ? shot.sourcePath : "",
+                  role: typeof shot.role === "string" ? shot.role : "alternate",
+                  title: typeof shot.title === "string" ? shot.title : "",
+                  description: typeof shot.description === "string" ? shot.description : "",
+                }))
+              : [],
             targetPhotoSlug: typeof photo.targetPhotoSlug === "string" ? photo.targetPhotoSlug : "",
             uiAttachToExisting: Boolean(photo.targetPhotoSlug),
             motionFrameSourcePaths: Array.isArray(photo.motionFrameSourcePaths)
@@ -345,6 +364,53 @@
 
   function availableMotionCandidates(currentPhoto: IngestPhoto) {
     return (manifest.value?.photos || []).filter((photo) => photo.sourcePath !== currentPhoto.sourcePath);
+  }
+
+  function availableShotCandidates(currentPhoto: IngestPhoto) {
+    return (manifest.value?.photos || []).filter((photo) => photo.sourcePath !== currentPhoto.sourcePath);
+  }
+
+  function createEmptyShot(): IngestShot {
+    return {
+      sourcePath: "",
+      role: "alternate",
+      title: "",
+      description: "",
+    };
+  }
+
+  function addShot(photo: IngestPhoto) {
+    photo.shots = [...(photo.shots || []), createEmptyShot()];
+  }
+
+  function removeShot(photo: IngestPhoto, index: number) {
+    if (!photo.shots) {
+      return;
+    }
+
+    photo.shots.splice(index, 1);
+  }
+
+  function addPreparedPhotoAsShot(targetPhoto: IngestPhoto, candidate: IngestPhoto) {
+    const existing = new Set((targetPhoto.shots || []).map((shot) => shot.sourcePath));
+
+    if (existing.has(candidate.sourcePath)) {
+      return;
+    }
+
+    targetPhoto.shots = [
+      ...(targetPhoto.shots || []),
+      {
+        sourcePath: candidate.sourcePath,
+        role: "alternate",
+        title: candidate.title || "",
+        description: candidate.description || "",
+      },
+    ];
+  }
+
+  function clearShots(photo: IngestPhoto) {
+    photo.shots = [];
   }
 
   function addPreparedPhotoAsMotionFrame(targetPhoto: IngestPhoto, sourcePath: string) {
@@ -533,6 +599,10 @@
             <strong>Motion</strong>
             <span>Files named like <strong>moment_*</strong>, <strong>moment2_*</strong>, <strong>moment3_*</strong>, or <strong>moment4_*</strong> are auto-grouped during prepare. You can still adjust the motion frame list afterward.</span>
           </div>
+          <div class="ingest-hero-note">
+            <strong>Shots</strong>
+            <span>Attach extra stills to one parent photo when the moment needs alternates or details without becoming a full set.</span>
+          </div>
         </div>
       </header>
 
@@ -569,6 +639,7 @@
         <p class="ingest-note">Studio state is saved locally in this browser, so the current manifest and AI brief come back after refresh.</p>
         <p class="ingest-note">Windows drive paths like <strong>C:\Users\...</strong> are converted to WSL mount paths automatically during prepare and upload.</p>
         <p class="ingest-note">For motion images, the main photo stays in <code>sourcePath</code>. Extra sequence frames go in the motion frame list on that photo card.</p>
+        <p class="ingest-note">Use shots when one published photo needs multiple stills under the same slug. Each shot can keep its own role and optional copy.</p>
         <p class="ingest-note">If the still image already exists in Directus, set an existing photo slug on the card and the upload will attach or replace motion frames on that record without replacing the main image.</p>
         <div class="ingest-live-tools">
           <button type="button" class="ingest-button ingest-button--ghost" :disabled="livePhotosLoading" @click="loadLivePhotos">
@@ -597,6 +668,10 @@
             <div>
               <span class="ingest-stat-label">Sets</span>
               <strong>{{ setCount }}</strong>
+            </div>
+            <div>
+              <span class="ingest-stat-label">Shot Groups</span>
+              <strong>{{ shotPhotoCount }}</strong>
             </div>
             <div>
               <span class="ingest-stat-label">Motion Sequences</span>
@@ -704,6 +779,9 @@
                 <span v-if="photo.motionFrameSourcePaths?.length" class="ingest-chip">
                   {{ photo.motionFrameSourcePaths.length }} motion frame{{ photo.motionFrameSourcePaths.length !== 1 ? "s" : "" }}
                 </span>
+                <span v-if="photo.shots?.length" class="ingest-chip">
+                  {{ photo.shots.length }} shot{{ photo.shots.length !== 1 ? "s" : "" }}
+                </span>
                 <button type="button" class="ingest-chip ingest-chip-button ingest-chip-button--danger" @click="removePhoto(index)">
                   Remove card
                 </button>
@@ -721,7 +799,7 @@
               <div class="ingest-section-head">
                 <div>
                   <span class="ingest-label">Attach Motion To Existing Photo</span>
-                  <p class="ingest-section-note">This mode leaves the existing photo’s title, slug, description, tags, and sets untouched. Only the motion frames are replaced.</p>
+                  <p class="ingest-section-note">This mode leaves the existing photo’s title, slug, description, tags, and sets untouched. Only attached shots and motion frames are replaced.</p>
                 </div>
                 <button
                   v-if="!livePhotosLoaded"
@@ -785,6 +863,65 @@
             <section class="ingest-motion-block">
               <div class="ingest-section-head">
                 <div>
+                  <span class="ingest-label">Shots</span>
+                  <p class="ingest-section-note">Extra stills for this photo. Each can have its own role, title, and description.</p>
+                </div>
+                <div class="ingest-inline-actions">
+                  <button type="button" class="ingest-button ingest-button--ghost" @click="addShot(photo)">
+                    Add shot
+                  </button>
+                  <button type="button" class="ingest-button ingest-button--ghost" @click="clearShots(photo)">
+                    Clear shots
+                  </button>
+                </div>
+              </div>
+              <div v-if="photo.shots?.length" class="ingest-shot-list">
+                <article v-for="(shot, shotIndex) in photo.shots" :key="`${photo.sourcePath}-shot-${shotIndex}-${shot.sourcePath}`" class="ingest-shot-card">
+                  <div class="ingest-shot-card-head">
+                    <strong>Shot {{ shotIndex + 1 }}</strong>
+                    <button type="button" class="ingest-chip ingest-chip-button ingest-chip-button--danger" @click="removeShot(photo, shotIndex)">
+                      Remove shot
+                    </button>
+                  </div>
+                  <label>
+                    <span class="ingest-label">Source path</span>
+                    <input v-model="shot.sourcePath" class="ingest-input" placeholder="/mnt/f/Cam/Edited/alternate-frame.tif" />
+                  </label>
+                  <div class="ingest-shot-grid">
+                    <label>
+                      <span class="ingest-label">Role</span>
+                      <input v-model="shot.role" class="ingest-input" placeholder="alternate" />
+                    </label>
+                    <label>
+                      <span class="ingest-label">Title</span>
+                      <input v-model="shot.title" class="ingest-input" placeholder="Optional title" />
+                    </label>
+                  </div>
+                  <label>
+                    <span class="ingest-label">Description</span>
+                    <textarea v-model="shot.description" class="ingest-textarea ingest-textarea--small" placeholder="Optional caption for this still" />
+                  </label>
+                </article>
+              </div>
+              <div v-if="availableShotCandidates(photo).length" class="ingest-motion-helper">
+                <span class="ingest-helper-label">From other cards</span>
+                <div class="ingest-motion-chips">
+                  <button
+                    v-for="candidate in availableShotCandidates(photo)"
+                    :key="`${photo.sourcePath}-shot-${candidate.sourcePath}`"
+                    type="button"
+                    class="ingest-chip ingest-chip-button"
+                    @click="addPreparedPhotoAsShot(photo, candidate)"
+                  >
+                    + {{ sourceLabel(candidate) }}
+                  </button>
+                </div>
+                <p class="ingest-section-note">After adding from another card, remove that card if you don't need it as its own photo.</p>
+              </div>
+            </section>
+            <section class="ingest-motion-block">
+              <div class="ingest-section-head">
+                <div>
                   <span class="ingest-label">Motion frames</span>
                   <p class="ingest-section-note">Add one path per line. These files upload as sequence frames for this photo. When an existing photo slug is set, the motion sequence attaches to that existing photo record.</p>
                 </div>
@@ -799,7 +936,7 @@
                 @input="setMotionFramesValue(photo, ($event.target as HTMLTextAreaElement).value)"
               />
               <div v-if="availableMotionCandidates(photo).length" class="ingest-motion-helper">
-                <span class="ingest-helper-label">Attach from prepared cards</span>
+                <span class="ingest-helper-label">From other cards</span>
                 <div class="ingest-motion-chips">
                   <button
                     v-for="candidate in availableMotionCandidates(photo)"
@@ -1165,11 +1302,45 @@
     gap: 0.75rem;
   }
 
+  .ingest-inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+
   .ingest-section-note {
     margin-top: 0.25rem;
     color: #94a3b8;
     line-height: 1.6;
     font-size: 0.84rem;
+  }
+
+  .ingest-shot-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .ingest-shot-card {
+    display: grid;
+    gap: 0.7rem;
+    padding: 0.9rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(4, 6, 7, 0.5);
+  }
+
+  .ingest-shot-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .ingest-shot-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   }
 
   .ingest-motion-helper {

@@ -2,17 +2,23 @@
   const props = withDefaults(
     defineProps<{
       src?: string | null;
+      srcset?: string | null;
+      sizes?: string | null;
       alt?: string | null;
       aspectRatio?: string | null;
       fit?: "cover" | "contain";
       loading?: "lazy" | "eager";
+      fetchpriority?: "high" | "low" | "auto";
     }>(),
     {
       src: null,
+      srcset: null,
+      sizes: null,
       alt: null,
       aspectRatio: null,
       fit: "cover",
       loading: "lazy",
+      fetchpriority: "auto",
     }
   );
 
@@ -41,8 +47,12 @@
     <img
       v-if="src"
       :src="src"
+      :srcset="srcset || undefined"
+      :sizes="sizes || undefined"
       :alt="alt || ''"
       :loading="loading"
+      :fetchpriority="fetchpriority"
+      decoding="async"
       @load="isLoaded = true"
     />
     <slot />
