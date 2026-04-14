@@ -379,6 +379,20 @@ export function buildDirectusAssetUrl(
   return `${directusUrl}/assets/${assetId}${qs ? `?${qs}` : ""}`;
 }
 
+function buildDirectusOriginalAssetUrl(
+  event: H3Event | undefined,
+  asset: string | DirectusAsset | null | undefined
+) {
+  const assetId = typeof asset === "string" ? asset : asset?.id;
+  const directusUrl = getDirectusUrl(event);
+
+  if (!assetId || !directusUrl) {
+    return null;
+  }
+
+  return `${directusUrl}/assets/${assetId}`;
+}
+
 function buildDirectusSrcset(
   event: H3Event | undefined,
   asset: string | DirectusAsset | null | undefined,
@@ -388,9 +402,27 @@ function buildDirectusSrcset(
   const assetId = typeof asset === "string" ? asset : asset?.id;
   if (!assetId) return null;
 
-  const parts = widths
+  const assetWidth = typeof asset === "object" ? asset?.width ?? null : null;
+  const baseWidth = Number(baseParams?.width);
+  const baseHeight = Number(baseParams?.height);
+  const responsiveWidths = Array.from(new Set(
+    widths
+      .map((width) => {
+        if (!Number.isFinite(width) || width <= 0) return null;
+        return assetWidth && assetWidth > 0 ? Math.min(width, assetWidth) : width;
+      })
+      .filter((width): width is number => Boolean(width))
+  ));
+
+  const parts = responsiveWidths
     .map((w) => {
-      const url = buildDirectusAssetUrl(event, asset, { ...baseParams, width: w });
+      const params = { ...baseParams, width: w } as Record<string, string | number | null | undefined>;
+
+      if (Number.isFinite(baseWidth) && baseWidth > 0 && Number.isFinite(baseHeight) && baseHeight > 0) {
+        params.height = Math.max(1, Math.round((baseHeight / baseWidth) * w));
+      }
+
+      const url = buildDirectusAssetUrl(event, asset, params);
       return url ? `${url} ${w}w` : null;
     })
     .filter(Boolean) as string[];
@@ -408,6 +440,7 @@ function normalizeAsset(
   const directusAsset = typeof asset === "string" ? null : asset;
   const id = typeof asset === "string" ? asset : asset?.id;
   const url = buildDirectusAssetUrl(event, asset, params);
+  const fallbackUrl = buildDirectusOriginalAssetUrl(event, asset);
   const previewUrl = buildDirectusAssetUrl(event, asset, previewParams || params);
 
   if (!id || !url) {
@@ -416,9 +449,16 @@ function normalizeAsset(
 
   const srcset = srcsetWidths
     ? buildDirectusSrcset(event, asset, srcsetWidths, {
+        ...params,
         format: "auto",
         withoutEnlargement: "true",
-        quality: params?.quality,
+      })
+    : null;
+  const previewSrcset = srcsetWidths
+    ? buildDirectusSrcset(event, asset, srcsetWidths, {
+        ...(previewParams || params),
+        format: "auto",
+        withoutEnlargement: "true",
       })
     : null;
 
@@ -429,8 +469,10 @@ function normalizeAsset(
     height: directusAsset?.height ?? null,
     downloadFilename: directusAsset?.filename_download ?? null,
     url,
+    fallbackUrl,
     previewUrl,
     srcset,
+    previewSrcset,
   };
 }
 

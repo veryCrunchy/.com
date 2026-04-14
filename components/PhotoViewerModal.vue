@@ -194,6 +194,7 @@
                   :src="currentItem.image.url"
                   :srcset="currentItem.image.srcset"
                   sizes="(min-width: 1600px) 1200px, (min-width: 1024px) 85vw, 95vw"
+                  :fallback-src="currentItem.image.fallbackUrl"
                   :alt="currentItem.image.alt || currentItem.label || ''"
                   fit="contain"
                 />
@@ -230,6 +231,9 @@
             >
               <PhotoAsset
                 :src="item.image?.previewUrl || item.image?.url"
+                :srcset="item.image?.previewSrcset || item.image?.srcset"
+                sizes="77px"
+                :fallback-src="item.image?.fallbackUrl"
                 :alt="item.image?.alt || item.label || ''"
                 aspect-ratio="3 / 2"
               />

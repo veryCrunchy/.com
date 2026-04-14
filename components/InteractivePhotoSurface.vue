@@ -56,10 +56,14 @@
         :play-on-hover="true"
         :show-overlay-controls="false"
         :fit="fit"
+        source-kind="preview"
       />
       <PhotoAsset
         v-else-if="photo.image"
         :src="photo.image.previewUrl || photo.image.url"
+        :srcset="photo.image.previewSrcset || photo.image.srcset"
+        sizes="(min-width: 1280px) 24rem, (min-width: 768px) 45vw, 100vw"
+        :fallback-src="photo.image.fallbackUrl"
         :alt="photo.image.alt || photo.title"
         :aspect-ratio="aspectRatio"
         :fit="fit"

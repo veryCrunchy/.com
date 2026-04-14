@@ -65,7 +65,16 @@
       </header>
 
       <div v-if="post.coverImage" class="entry-cover" data-directus-field="cover_image">
-        <img :src="post.coverImage.url" :alt="post.coverImage.alt || post.title" />
+        <PhotoAsset
+          :src="post.coverImage.url"
+          :srcset="post.coverImage.srcset"
+          sizes="(min-width: 900px) 48rem, 100vw"
+          :fallback-src="post.coverImage.fallbackUrl"
+          :alt="post.coverImage.alt || post.title"
+          aspect-ratio="16 / 9"
+          loading="eager"
+          fetchpriority="high"
+        />
       </div>
 
       <div
@@ -154,7 +163,7 @@
     background: rgba(15, 23, 42, 0.56);
   }
 
-  .entry-cover img {
+  .entry-cover :deep(img) {
     width: 100%;
     display: block;
     object-fit: cover;

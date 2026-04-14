@@ -222,8 +222,10 @@ export interface CmsAsset {
   height: number | null;
   downloadFilename: string | null;
   url: string;
+  fallbackUrl: string | null;
   previewUrl: string | null;
   srcset: string | null;
+  previewSrcset: string | null;
 }
 
 export interface CmsLocationMeta {

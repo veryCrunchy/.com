@@ -46,10 +46,13 @@
         class="post-card"
       >
         <div v-if="post.coverImage" class="post-card-media">
-          <img
+          <PhotoAsset
             :src="post.coverImage.previewUrl || post.coverImage.url"
+            :srcset="post.coverImage.previewSrcset || post.coverImage.srcset"
+            sizes="(min-width: 1200px) 23rem, (min-width: 768px) 45vw, 100vw"
+            :fallback-src="post.coverImage.fallbackUrl"
             :alt="post.coverImage.alt || post.title"
-            loading="lazy"
+            aspect-ratio="16 / 9"
           />
         </div>
         <div class="post-card-body">
@@ -136,14 +139,14 @@
     background: rgba(15, 23, 42, 0.7);
   }
 
-  .post-card-media img {
+  .post-card-media :deep(img) {
     width: 100%;
     height: 100%;
     object-fit: cover;
     transition: transform 0.4s ease;
   }
 
-  .post-card:hover .post-card-media img {
+  .post-card:hover .post-card-media :deep(img) {
     transform: scale(1.03);
   }
 

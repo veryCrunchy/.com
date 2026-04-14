@@ -151,6 +151,9 @@
               <PhotoAsset
                 v-if="timeline.coverImage"
                 :src="timeline.coverImage.previewUrl || timeline.coverImage.url"
+                :srcset="timeline.coverImage.previewSrcset || timeline.coverImage.srcset"
+                sizes="(min-width: 1200px) 22rem, (min-width: 768px) 45vw, 100vw"
+                :fallback-src="timeline.coverImage.fallbackUrl"
                 :alt="timeline.coverImage.alt || timeline.title"
                 aspect-ratio="4 / 3"
               />
@@ -197,6 +200,9 @@
               <PhotoAsset
                 v-if="set.coverImage"
                 :src="set.coverImage.previewUrl || set.coverImage.url"
+                :srcset="set.coverImage.previewSrcset || set.coverImage.srcset"
+                sizes="(min-width: 1200px) 22rem, (min-width: 768px) 45vw, 100vw"
+                :fallback-src="set.coverImage.fallbackUrl"
                 :alt="set.coverImage.alt || set.title"
                 aspect-ratio="4 / 3"
               />

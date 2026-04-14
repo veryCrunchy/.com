@@ -4,6 +4,7 @@
       src?: string | null;
       srcset?: string | null;
       sizes?: string | null;
+      fallbackSrc?: string | null;
       alt?: string | null;
       aspectRatio?: string | null;
       fit?: "cover" | "contain";
@@ -14,6 +15,7 @@
       src: null,
       srcset: null,
       sizes: null,
+      fallbackSrc: null,
       alt: null,
       aspectRatio: null,
       fit: "cover",
@@ -23,14 +25,32 @@
   );
 
   const isLoaded = ref(false);
+  const hasError = ref(false);
+  const currentSourceIndex = ref(0);
+  const sources = computed(() => Array.from(new Set([props.src, props.fallbackSrc].filter(Boolean))) as string[]);
+  const activeSrc = computed(() => sources.value[currentSourceIndex.value] || null);
+  const activeSrcset = computed(() => currentSourceIndex.value === 0 ? props.srcset : null);
+  const activeSizes = computed(() => currentSourceIndex.value === 0 ? props.sizes : null);
 
   watch(
-    () => props.src,
+    () => [props.src, props.fallbackSrc],
     () => {
       isLoaded.value = false;
+      hasError.value = false;
+      currentSourceIndex.value = 0;
     },
     { immediate: true }
   );
+
+  function handleError() {
+    if (currentSourceIndex.value < sources.value.length - 1) {
+      currentSourceIndex.value += 1;
+      isLoaded.value = false;
+      return;
+    }
+
+    hasError.value = true;
+  }
 </script>
 
 <template>
@@ -39,21 +59,23 @@
     :class="{
       'photo-asset--loaded': isLoaded,
       'photo-asset--contain': fit === 'contain',
-      'photo-asset--empty': !src,
+      'photo-asset--empty': !activeSrc,
+      'photo-asset--error': hasError,
     }"
     :style="aspectRatio ? { aspectRatio } : undefined"
   >
     <div class="photo-asset-skeleton" aria-hidden="true" />
     <img
-      v-if="src"
-      :src="src"
-      :srcset="srcset || undefined"
-      :sizes="sizes || undefined"
+      v-if="activeSrc"
+      :src="activeSrc"
+      :srcset="activeSrcset || undefined"
+      :sizes="activeSizes || undefined"
       :alt="alt || ''"
       :loading="loading"
       :fetchpriority="fetchpriority"
       decoding="async"
       @load="isLoaded = true"
+      @error="handleError"
     />
     <slot />
   </div>
@@ -109,6 +131,11 @@
 
   .photo-asset--empty .photo-asset-skeleton {
     opacity: 1;
+  }
+
+  .photo-asset--error .photo-asset-skeleton {
+    opacity: 0.38;
+    animation: none;
   }
 
   @keyframes photo-asset-shimmer {

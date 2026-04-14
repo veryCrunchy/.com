@@ -44,6 +44,9 @@
             <PhotoAsset
               v-if="timeline.coverImage"
               :src="timeline.coverImage.previewUrl || timeline.coverImage.url"
+              :srcset="timeline.coverImage.previewSrcset || timeline.coverImage.srcset"
+              sizes="(min-width: 1200px) 22rem, (min-width: 768px) 45vw, 100vw"
+              :fallback-src="timeline.coverImage.fallbackUrl"
               :alt="timeline.coverImage.alt || timeline.title"
               aspect-ratio="4 / 3"
             />

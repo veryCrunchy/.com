@@ -323,6 +323,7 @@
                 :src="activeStill.image?.url"
                 :srcset="activeStill.image?.srcset"
                 sizes="(min-width: 1440px) 900px, (min-width: 980px) 65vw, 100vw"
+                :fallback-src="activeStill.image?.fallbackUrl"
                 :alt="activeStill.image?.alt || activeStill.label || photo.title"
                 :aspect-ratio="activeStill.image?.width && activeStill.image?.height ? `${activeStill.image.width} / ${activeStill.image.height}` : null"
                 fit="contain"
@@ -343,6 +344,9 @@
               >
                 <PhotoAsset
                   :src="still.image?.previewUrl || still.image?.url"
+                  :srcset="still.image?.previewSrcset || still.image?.srcset"
+                  sizes="120px"
+                  :fallback-src="still.image?.fallbackUrl"
                   :alt="still.image?.alt || still.label || ''"
                   aspect-ratio="3 / 2"
                 />

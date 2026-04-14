@@ -9,6 +9,7 @@
       motionFrames?: CmsMotionFrame[];
       alt?: string | null;
       fit?: "cover" | "contain";
+      sourceKind?: "full" | "preview";
       intervalMs?: number;
       transitionMs?: number;
       finalFrameHoldMs?: number;
@@ -21,6 +22,7 @@
       motionFrames: () => [],
       alt: null,
       fit: "contain",
+      sourceKind: "full",
       intervalMs: 130,
       transitionMs: 55,
       finalFrameHoldMs: 1400,
@@ -44,6 +46,7 @@
   const framesReady = ref(false);
   const isPreloading = ref(false);
   const pendingPlay = ref(false);
+  const failedSourceIndexes = ref<Record<string, number>>({});
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
 
@@ -88,6 +91,40 @@
   const transitionStyle = computed(() => ({
     "--motion-transition-ms": `${props.transitionMs}ms`,
   }));
+
+  function getFrameSources(frame: CmsAsset | null | undefined) {
+    if (!frame) return [];
+
+    const ordered = props.sourceKind === "preview"
+      ? [frame.previewUrl, frame.url, frame.fallbackUrl]
+      : [frame.url, frame.previewUrl, frame.fallbackUrl];
+
+    return Array.from(new Set(ordered.filter(Boolean))) as string[];
+  }
+
+  function getFrameSrc(frame: CmsAsset | null | undefined) {
+    if (!frame) return null;
+
+    const sources = getFrameSources(frame);
+    const index = failedSourceIndexes.value[frame.id] || 0;
+    return sources[index] || sources[0] || null;
+  }
+
+  function handleFrameError(frame: CmsAsset | null | undefined) {
+    if (!frame) return;
+
+    const sources = getFrameSources(frame);
+    const index = failedSourceIndexes.value[frame.id] || 0;
+
+    if (index >= sources.length - 1) {
+      return;
+    }
+
+    failedSourceIndexes.value = {
+      ...failedSourceIndexes.value,
+      [frame.id]: index + 1,
+    };
+  }
 
   // ─── Playback helpers ─────────────────────────────────────────────────────────
 
@@ -182,7 +219,12 @@
     isPreloading.value = true;
 
     try {
-      await Promise.all(frames.value.map((frame) => decodeImage(frame.url)));
+      await Promise.all(
+        frames.value.map((frame) => {
+          const src = getFrameSrc(frame);
+          return src ? decodeImage(src) : Promise.resolve();
+        })
+      );
     } finally {
       framesReady.value = true;
       isPreloading.value = false;
@@ -220,6 +262,7 @@
   watch(
     () => frames.value.map((frame) => frame.id).join(","),
     () => {
+      failedSourceIndexes.value = {};
       framesReady.value = false;
       pendingPlay.value = false;
       jumpToFinalFrame();
@@ -260,20 +303,22 @@
       <img
         v-if="currentFrame"
         class="motion-photo-player-image"
-        :src="currentFrame.url"
+        :src="getFrameSrc(currentFrame) || undefined"
         :alt="alt || currentFrame.alt || ''"
         decoding="async"
         fetchpriority="high"
+        @error="handleFrameError(currentFrame)"
       />
 
       <img
         v-if="previousFrame"
         class="motion-photo-player-image motion-photo-player-image--previous"
         :class="{ 'motion-photo-player-image--fading': isTransitioning }"
-        :src="previousFrame.url"
+        :src="getFrameSrc(previousFrame) || undefined"
         :alt="alt || previousFrame.alt || ''"
         decoding="async"
         aria-hidden="true"
+        @error="handleFrameError(previousFrame)"
       />
     </div>
 
