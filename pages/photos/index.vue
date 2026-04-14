@@ -35,6 +35,8 @@
   const photos = computed(() => data.value.photos);
   const photosets = computed(() => setsData.value.photosets);
   const timelines = computed(() => timelinesData.value.timelines);
+  const config = useRuntimeConfig();
+  const showIngestStudio = computed(() => config.public.env === "development");
   const isArchiveLoading = computed(
     () => (photosPending.value || setsPending.value || timelinesPending.value) && !photos.value.length && !photosets.value.length && !timelines.value.length
   );
@@ -107,7 +109,7 @@
         <NuxtLink to="/photos/timeline" class="photo-hero-action">
           Open timeline
         </NuxtLink>
-        <NuxtLink to="/photos/upload" class="photo-hero-action photo-hero-action-secondary">
+        <NuxtLink v-if="showIngestStudio" to="/photos/upload" class="photo-hero-action photo-hero-action-secondary">
           Open ingest studio
         </NuxtLink>
       </div>
