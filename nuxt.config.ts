@@ -52,8 +52,8 @@ export default defineNuxtConfig({
       : [],
   },
   runtimeConfig: {
-    // Server-only: admin token, only needed locally / for the seed script.
-    // Do NOT set this in production — public access is handled via Directus policies.
+    // Server-only Directus token. Optional for public read-only pages, but required
+    // for local schema scripts and write-backed server routes such as street delivery intake.
     directusToken: process.env.DIRECTUS_TOKEN,
     photoIngestAiApiKey: process.env.PHOTO_INGEST_AI_API_KEY,
     photoIngestAiBaseUrl: process.env.PHOTO_INGEST_AI_BASE_URL,

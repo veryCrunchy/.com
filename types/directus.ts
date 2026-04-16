@@ -199,6 +199,44 @@ export interface DirectusTimeline {
   entries?: DirectusTimelinePhoto[] | null;
 }
 
+export interface DirectusStreetDeliverySession {
+  id: number;
+  status?: string | null;
+  code: string;
+  date_created?: string | null;
+  date_updated?: string | null;
+  photographed_at?: string | null;
+  location?: string | null;
+  notes?: string | null;
+  public_enabled?: boolean | null;
+  gallery_token?: string | null;
+  last_submission_at?: string | null;
+  delivered_at?: string | null;
+  contacts?: DirectusStreetDeliveryContact[] | null;
+  photos?: DirectusStreetDeliverySessionPhoto[] | null;
+}
+
+export interface DirectusStreetDeliveryContact {
+  id: number;
+  street_delivery_sessions_id: number | DirectusStreetDeliverySession;
+  sort?: number | null;
+  date_created?: string | null;
+  method: "email" | "instagram" | "phone";
+  value: string;
+  first_name?: string | null;
+  description?: string | null;
+  selfie?: string | DirectusAsset | null;
+  consent_send?: boolean | null;
+  consent_publish?: boolean | null;
+}
+
+export interface DirectusStreetDeliverySessionPhoto {
+  id: number;
+  street_delivery_sessions_id: number | DirectusStreetDeliverySession;
+  photos_id: string | number | DirectusPhoto;
+  sort?: number | null;
+}
+
 export interface DirectusSchema {
   site_settings: DirectusSiteSettings[];
   posts: DirectusPost[];
@@ -212,6 +250,9 @@ export interface DirectusSchema {
   photosets_photos: DirectusPhotosetPhoto[];
   timelines: DirectusTimeline[];
   timelines_photos: DirectusTimelinePhoto[];
+  street_delivery_sessions: DirectusStreetDeliverySession[];
+  street_delivery_contacts: DirectusStreetDeliveryContact[];
+  street_delivery_session_photos: DirectusStreetDeliverySessionPhoto[];
   projects: DirectusProject[];
 }
 
@@ -401,6 +442,58 @@ export interface CmsTimelineRef {
   id: number;
   slug: string;
   title: string;
+}
+
+export type CmsStreetDeliveryContactMethod = "email" | "instagram" | "phone";
+
+export interface CmsStreetDeliverySessionPublic {
+  id: number;
+  code: string;
+  status: string | null;
+  photographedAt: string | null;
+  location: string | null;
+  galleryToken: string | null;
+  galleryReady: boolean;
+}
+
+export interface CmsStreetDeliveryGallery {
+  session: CmsStreetDeliverySessionPublic;
+  photos: CmsPhotoSummary[];
+}
+
+export interface CmsStreetDeliverySubmissionResult {
+  session: CmsStreetDeliverySessionPublic;
+  galleryUrl: string | null;
+}
+
+export interface CmsStreetDeliveryAdminContactPreview {
+  id: number;
+  dateCreated: string | null;
+  method: CmsStreetDeliveryContactMethod;
+  value: string;
+  firstName: string | null;
+  description: string | null;
+  consentPublish: boolean;
+}
+
+export interface CmsStreetDeliveryAdminSessionSummary {
+  id: number;
+  code: string;
+  status: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  photographedAt: string | null;
+  location: string | null;
+  publicEnabled: boolean;
+  galleryToken: string | null;
+  galleryReady: boolean;
+  lastSubmissionAt: string | null;
+  deliveredAt: string | null;
+  contactCount: number;
+  photoCount: number;
+  publicPath: string;
+  galleryPath: string | null;
+  latestContact: CmsStreetDeliveryAdminContactPreview | null;
 }
 
 export interface CmsPhoto extends CmsPhotoSummary {

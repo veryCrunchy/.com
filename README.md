@@ -21,7 +21,7 @@ NUXT_PUBLIC_DIRECTUS_URL=https://your-directus-instance.example.com
 DIRECTUS_TOKEN=your_directus_static_token
 ```
 
-`DIRECTUS_TOKEN` should be a read token with access to the public-facing collections below. If your Directus instance exposes these collections publicly, you can omit the token and the site will still render.
+`DIRECTUS_TOKEN` is server-only. For the public site it can be omitted if your published collections are readable through Directus policies, but it is still required for local schema scripts and any write-backed features such as street-photo delivery intake.
 
 ## Directus Collections
 
@@ -136,3 +136,43 @@ You can also add structured metadata and story placement:
 - `locationMeta` for structured places
 - `cameraMeta` and `lensMeta` for lookup-backed gear metadata
 - `timelineEntries` for placing a photo inside one or more story timelines with optional `chapterTitle` and `storyText`
+
+## Street Delivery
+
+The portfolio now includes a Directus-backed street photo handoff flow:
+
+- public request page at `/p/[code]`
+- legacy redirect from `/s/[code]`
+- delivery gallery at `/g/[token]`
+- Directus collections for sessions, contacts, and assigned photos
+
+Set up the schema:
+
+```bash
+pnpm street:setup
+```
+
+Generate card codes directly into Directus:
+
+```bash
+pnpm street:codes -- --count 100
+pnpm street:codes -- --count 25 --prefix AMS --dry-run
+```
+
+Directus collections created by `street:setup`:
+
+- `street_delivery_sessions`
+- `street_delivery_contacts`
+- `street_delivery_session_photos`
+
+Suggested workflow:
+
+1. Run `pnpm street:setup`.
+2. Generate a batch of codes with `pnpm street:codes`.
+3. Or sign into `/studio/street-delivery` with your Directus account to create, print, and manage batches in-browser.
+4. Print cards that point to `https://your-site.example.com/p/CODE`.
+5. When someone submits the form, their contact lands in `street_delivery_contacts`.
+6. In Directus or the studio dashboard, assign matched images through the `photos` field on the session.
+7. Mark the session delivered when the gallery is ready, then share `/g/{token}` manually.
+
+This feature intentionally does not create public Directus permissions for contact data. The public intake routes use your server-side `DIRECTUS_TOKEN` for privacy-safe reads and writes, while `/studio/street-delivery` uses real Directus user auth.
