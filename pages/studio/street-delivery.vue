@@ -2,7 +2,8 @@
   import QRCode from "qrcode";
   import { computed, onMounted, reactive, ref, watch } from "vue";
 
-  import type { CmsStreetDeliveryAdminSessionSummary } from "~/types/directus";
+  import { DEFAULT_CMS_SITE_SETTINGS } from "~/types/directus";
+  import type { CmsSiteSettings, CmsStreetDeliveryAdminSessionSummary } from "~/types/directus";
 
   type SessionDraft = {
     status: string;
@@ -20,6 +21,17 @@
   const PRINT_COLUMNS = 2;
   const PRINT_ROWS = 5;
   const CARDS_PER_PAGE = PRINT_COLUMNS * PRINT_ROWS;
+  const runtimeConfig = useRuntimeConfig();
+  const { data: siteSettings } = await useAsyncData<CmsSiteSettings>(
+    "street-delivery-site-settings",
+    async () => {
+      const response = await $fetch<{ site: CmsSiteSettings }>("/api/cms/site-settings");
+      return response.site;
+    },
+    {
+      default: () => DEFAULT_CMS_SITE_SETTINGS,
+    }
+  );
 
   const origin = ref("");
   const authToken = ref("");
@@ -32,16 +44,18 @@
   const latestBatch = ref<CmsStreetDeliveryAdminSessionSummary[]>([]);
   const batchCount = ref(10);
   const batchPrefix = ref("");
-  const batchLocation = ref("");
-  const batchPhotographedAt = ref("");
   const batchBusy = ref(false);
   const batchError = ref("");
   const batchMessage = ref("");
+  const printStatusFilter = ref<"all" | "printed" | "unprinted">("all");
   const printMirrorBacks = ref(true);
   const printIncludeBacks = ref(true);
   const qrByCode = reactive<Record<string, string>>({});
   const saveBusy = reactive<Record<number, boolean>>({});
   const saveError = reactive<Record<number, string>>({});
+  const deleteBusy = reactive<Record<number, boolean>>({});
+  const deleteError = reactive<Record<number, string>>({});
+  const copyFeedback = reactive<Record<number, string>>({});
   const drafts = reactive<Record<number, SessionDraft>>({});
 
   useSeoMeta({
@@ -91,8 +105,12 @@
     }
   }
 
+  const displayBaseUrl = computed(() =>
+    String(runtimeConfig.public.siteUrlDisplay || origin.value || "").replace(/\/$/, "")
+  );
+
   function cardUrl(session: CmsStreetDeliveryAdminSessionSummary) {
-    return `${origin.value}${session.publicPath}`;
+    return `${displayBaseUrl.value}${session.publicPath}`;
   }
 
   function formatDisplayDate(value: string | null) {
@@ -110,6 +128,21 @@
       dateStyle: "medium",
       timeStyle: "short",
     }).format(date);
+  }
+
+  function fillMessageTemplate(
+    template: string,
+    replacements: {
+      formLink?: string;
+      galleryLink?: string;
+    }
+  ) {
+    return String(template || "")
+      .replace(/\[(form link|form_link)\]/gi, replacements.formLink || "")
+      .replace(/\{\{\s*form_link\s*\}\}/gi, replacements.formLink || "")
+      .replace(/\[(gallery link|gallery_link)\]/gi, replacements.galleryLink || "")
+      .replace(/\{\{\s*gallery_link\s*\}\}/gi, replacements.galleryLink || "")
+      .trim();
   }
 
   async function adminFetch<T>(path: string, options: Parameters<typeof $fetch<T>>[1] = {}) {
@@ -207,10 +240,6 @@
           body: {
             count: batchCount.value,
             prefix: batchPrefix.value || null,
-            location: batchLocation.value || null,
-            photographedAt: batchPhotographedAt.value
-              ? new Date(batchPhotographedAt.value).toISOString()
-              : null,
           },
         }
       );
@@ -218,7 +247,7 @@
       latestBatch.value = response.sessions;
       sessions.value = [...response.sessions, ...sessions.value];
       syncDrafts(response.sessions);
-      batchMessage.value = `Created ${response.sessions.length} secure QR cards.`;
+      batchMessage.value = `Created ${response.sessions.length} secure QR cards. Add location and photo date later from the session workspace.`;
     } catch (error: unknown) {
       batchError.value =
         typeof error === "object" && error && "statusMessage" in error
@@ -227,6 +256,20 @@
     } finally {
       batchBusy.value = false;
     }
+  }
+
+  function replaceSessionState(nextSession: CmsStreetDeliveryAdminSessionSummary) {
+    const index = sessions.value.findIndex((session) => session.id === nextSession.id);
+    if (index !== -1) {
+      sessions.value[index] = nextSession;
+    }
+
+    const latestIndex = latestBatch.value.findIndex((session) => session.id === nextSession.id);
+    if (latestIndex !== -1) {
+      latestBatch.value[latestIndex] = nextSession;
+    }
+
+    syncDraft(nextSession);
   }
 
   async function saveSession(sessionId: number, regenerateGalleryToken = false) {
@@ -255,18 +298,7 @@
           },
         }
       );
-
-      const index = sessions.value.findIndex((session) => session.id === sessionId);
-      if (index !== -1) {
-        sessions.value[index] = response.session;
-      }
-
-      const latestIndex = latestBatch.value.findIndex((session) => session.id === sessionId);
-      if (latestIndex !== -1) {
-        latestBatch.value[latestIndex] = response.session;
-      }
-
-      syncDraft(response.session);
+      replaceSessionState(response.session);
     } catch (error: unknown) {
       saveError[sessionId] =
         typeof error === "object" && error && "statusMessage" in error
@@ -277,10 +309,72 @@
     }
   }
 
+  async function setPrintedState(sessionId: number, printed: boolean) {
+    saveBusy[sessionId] = true;
+    saveError[sessionId] = "";
+
+    try {
+      const response = await adminFetch<{ session: CmsStreetDeliveryAdminSessionSummary }>(
+        `/api/cms/street-delivery/admin/sessions/${sessionId}`,
+        {
+          method: "PATCH",
+          body: {
+            printedAt: printed ? new Date().toISOString() : null,
+          },
+        }
+      );
+
+      replaceSessionState(response.session);
+    } catch (error: unknown) {
+      saveError[sessionId] =
+        typeof error === "object" && error && "statusMessage" in error
+          ? String((error as { statusMessage?: string }).statusMessage || "Could not update print status.")
+          : "Could not update print status.";
+    } finally {
+      saveBusy[sessionId] = false;
+    }
+  }
+
+  async function deleteSession(sessionId: number) {
+    deleteBusy[sessionId] = true;
+    deleteError[sessionId] = "";
+
+    try {
+      await adminFetch(`/api/cms/street-delivery/admin/sessions/${sessionId}`, {
+        method: "DELETE",
+      });
+
+      sessions.value = sessions.value.filter((session) => session.id !== sessionId);
+      latestBatch.value = latestBatch.value.filter((session) => session.id !== sessionId);
+      delete drafts[sessionId];
+    } catch (error: unknown) {
+      deleteError[sessionId] =
+        typeof error === "object" && error && "statusMessage" in error
+          ? String((error as { statusMessage?: string }).statusMessage || "Could not delete code.")
+          : "Could not delete code.";
+    } finally {
+      deleteBusy[sessionId] = false;
+    }
+  }
+
+  async function copyRequestMessage(session: CmsStreetDeliveryAdminSessionSummary) {
+    const text = fillMessageTemplate(siteSettings.value.streetDeliveryRequestMessageTemplate, {
+      formLink: cardUrl(session),
+    });
+
+    await navigator.clipboard.writeText(text);
+    copyFeedback[session.id] = "Request message copied.";
+  }
+
+  function prepareReprint(session: CmsStreetDeliveryAdminSessionSummary) {
+    latestBatch.value = [session];
+    batchMessage.value = `Queued ${session.code} for reprint.`;
+  }
+
   async function refreshQrCodes() {
     const batch = latestBatch.value;
 
-    if (!batch.length || !origin.value) {
+    if (!batch.length || !displayBaseUrl.value) {
       return;
     }
 
@@ -336,6 +430,22 @@
   }
 
   const printablePages = computed(() => buildPrintPages(latestBatch.value));
+  const filteredSessions = computed(() => {
+    if (printStatusFilter.value === "printed") {
+      return sessions.value.filter((session) => session.printed);
+    }
+
+    if (printStatusFilter.value === "unprinted") {
+      return sessions.value.filter((session) => !session.printed);
+    }
+
+    return sessions.value;
+  });
+  const unprintedCount = computed(() => sessions.value.filter((session) => !session.printed).length);
+  const printedCount = computed(() => sessions.value.filter((session) => session.printed).length);
+  const latestBatchAllPrinted = computed(
+    () => latestBatch.value.length > 0 && latestBatch.value.every((session) => session.printed)
+  );
 
   const printInstruction = computed(() =>
     printMirrorBacks.value
@@ -343,16 +453,22 @@
       : "Print double-sided on A4 at 100% scale with your preferred duplex setting."
   );
 
-  function printLatestBatch() {
+  async function printLatestBatch() {
     if (!latestBatch.value.length) {
       return;
+    }
+
+    const unprintedBatch = latestBatch.value.filter((session) => !session.printed);
+
+    if (unprintedBatch.length) {
+      await Promise.all(unprintedBatch.map((session) => setPrintedState(session.id, true)));
     }
 
     window.print();
   }
 
   watch(
-    () => latestBatch.value.map((session) => `${session.id}:${cardUrl(session)}`).join("|"),
+    () => latestBatch.value.map((session) => `${session.id}:${cardUrl(session)}:${session.printedAt || ""}`).join("|"),
     () => {
       void refreshQrCodes();
     }
@@ -441,14 +557,9 @@
                 <span>Optional prefix</span>
                 <input v-model="batchPrefix" placeholder="AMS or KINGSDAY if you want a visible batch marker">
               </label>
-              <label class="studio-field">
-                <span>Location</span>
-                <input v-model="batchLocation" placeholder="Amsterdam Noord, King’s Day, etc.">
-              </label>
-              <label class="studio-field">
-                <span>Photographed at</span>
-                <input v-model="batchPhotographedAt" type="datetime-local">
-              </label>
+              <p class="studio-hint studio-grid-full">
+                Cards are created blank on purpose. Add location and photo date later, once the shoot has happened.
+              </p>
               <p v-if="batchError" class="studio-error studio-grid-full">{{ batchError }}</p>
               <p v-else-if="batchMessage" class="studio-success studio-grid-full">{{ batchMessage }}</p>
               <div class="studio-actions studio-grid-full">
@@ -474,7 +585,9 @@
               <p class="studio-eyebrow">Print</p>
               <h2>Front / Back A4 sheets</h2>
             </div>
-            <p class="studio-hint">{{ latestBatch.length }} cards ready</p>
+            <p class="studio-hint">
+              {{ latestBatch.length }} cards ready · {{ latestBatchAllPrinted ? "reprint batch" : "unprinted batch" }}
+            </p>
           </div>
 
           <div class="print-options no-print">
@@ -490,6 +603,7 @@
 
           <p class="studio-hint no-print">
             {{ printInstruction }} Cut directly on the card borders. The sheets are laid out as 2 columns × 5 rows on A4.
+            Display URL: {{ displayBaseUrl || "set NUXT_PUBLIC_SITE_URL_DISPLAY to use your production domain here" }}.
           </p>
 
           <div class="sheet-stack">
@@ -588,24 +702,41 @@
               <p class="studio-eyebrow">Manage</p>
               <h2>Sessions</h2>
             </div>
-            <p class="studio-hint">{{ sessions.length }} total</p>
+            <p class="studio-hint">{{ sessions.length }} total · {{ unprintedCount }} unprinted · {{ printedCount }} printed</p>
           </div>
+
+          <div class="session-toolbar">
+            <label class="studio-field session-filter">
+              <span>Print state</span>
+              <select v-model="printStatusFilter">
+                <option value="all">All sessions</option>
+                <option value="unprinted">Unprinted only</option>
+                <option value="printed">Printed only</option>
+              </select>
+            </label>
+          </div>
+
+          <p class="studio-hint">Request and delivery message templates are configurable in Directus under site settings.</p>
 
           <div class="session-list">
             <article
-              v-for="session in sessions"
+              v-for="session in filteredSessions"
               :key="session.id"
               class="session-card"
             >
               <div class="session-head">
-                <div>
+                <div class="session-id">
                   <p class="session-code">{{ session.code }}</p>
                   <p class="session-meta">
-                    {{ session.contactCount }} contacts · {{ session.photoCount }} photos
+                    <span :class="{ 'is-printed': session.printed, 'is-unprinted': !session.printed }" class="session-print-badge">
+                      {{ session.printed ? `Printed ${formatDisplayDate(session.printedAt) || ""}`.trim() : "Not printed" }}
+                    </span>
+                    <span>{{ session.contactCount }} {{ session.contactCount === 1 ? 'contact' : 'contacts' }}</span>
+                    <span>{{ session.photoCount }} {{ session.photoCount === 1 ? 'photo' : 'photos' }}</span>
                   </p>
                 </div>
                 <div class="session-links">
-                  <a :href="session.publicPath" target="_blank" rel="noopener">Public page</a>
+                  <a :href="session.publicPath" target="_blank" rel="noopener">Request page</a>
                   <a
                     v-if="session.galleryPath"
                     :href="session.galleryPath"
@@ -642,29 +773,69 @@
               </div>
 
               <p v-if="session.latestContact" class="session-contact">
-                Latest contact: {{ session.latestContact.method }} · {{ session.latestContact.value }}
+                <span class="session-contact-label">Latest contact</span>
+                {{ session.latestContact.method }} · {{ session.latestContact.value }}
                 <span v-if="session.latestContact.description"> · {{ session.latestContact.description }}</span>
               </p>
 
               <p v-if="saveError[session.id]" class="studio-error">{{ saveError[session.id] }}</p>
+              <p v-if="deleteError[session.id]" class="studio-error">{{ deleteError[session.id] }}</p>
+              <p v-if="copyFeedback[session.id]" class="studio-success">{{ copyFeedback[session.id] }}</p>
 
-              <div class="studio-actions">
-                <button
-                  class="studio-primary"
-                  :disabled="saveBusy[session.id]"
-                  type="button"
-                  @click="saveSession(session.id)"
-                >
-                  {{ saveBusy[session.id] ? "Saving…" : "Save changes" }}
-                </button>
-                <button
-                  class="studio-secondary"
-                  :disabled="saveBusy[session.id]"
-                  type="button"
-                  @click="saveSession(session.id, true)"
-                >
-                  Regenerate gallery token
-                </button>
+              <div class="session-actions">
+                <div class="session-actions-primary">
+                  <button
+                    class="studio-primary"
+                    :disabled="saveBusy[session.id]"
+                    type="button"
+                    @click="saveSession(session.id)"
+                  >
+                    {{ saveBusy[session.id] ? "Saving…" : "Save" }}
+                  </button>
+                  <NuxtLink class="studio-secondary session-workspace-link" :to="`/studio/street-delivery-session/${session.id}`">
+                    Open workspace
+                  </NuxtLink>
+                </div>
+                <div class="session-actions-secondary">
+                  <button
+                    class="studio-secondary"
+                    :disabled="saveBusy[session.id]"
+                    type="button"
+                    @click="saveSession(session.id, true)"
+                  >
+                    Regenerate token
+                  </button>
+                  <button
+                    class="studio-secondary"
+                    :disabled="saveBusy[session.id]"
+                    type="button"
+                    @click="setPrintedState(session.id, !session.printed)"
+                  >
+                    {{ session.printed ? "Unmark printed" : "Mark printed" }}
+                  </button>
+                  <button
+                    class="studio-secondary"
+                    type="button"
+                    @click="prepareReprint(session)"
+                  >
+                    Reprint
+                  </button>
+                  <button
+                    class="studio-secondary"
+                    type="button"
+                    @click="copyRequestMessage(session)"
+                  >
+                    Copy request message
+                  </button>
+                  <button
+                    class="studio-secondary is-danger"
+                    :disabled="deleteBusy[session.id] || session.printed || session.contactCount > 0 || session.photoCount > 0"
+                    type="button"
+                    @click="deleteSession(session.id)"
+                  >
+                    {{ deleteBusy[session.id] ? "Deleting…" : "Delete" }}
+                  </button>
+                </div>
               </div>
             </article>
           </div>
@@ -699,7 +870,8 @@
   .studio-panel-head,
   .session-head,
   .studio-actions,
-  .print-options {
+  .print-options,
+  .session-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -771,6 +943,14 @@
     grid-column: 1 / -1;
   }
 
+  .session-toolbar {
+    margin: 0 0 1rem;
+  }
+
+  .session-filter {
+    max-width: 16rem;
+  }
+
   .studio-field {
     display: grid;
     gap: 0.45rem;
@@ -823,6 +1003,18 @@
     border: 1px solid rgba(161, 161, 170, 0.28);
     background: transparent;
     color: #f4f4f5;
+  }
+
+  .studio-secondary.is-danger {
+    border-color: rgba(248, 113, 113, 0.42);
+    color: #fecaca;
+  }
+
+  .session-workspace-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
   }
 
   .studio-primary:disabled,
@@ -1053,20 +1245,61 @@
   .session-card {
     border: 1px solid rgba(161, 161, 170, 0.12);
     border-radius: 1.1rem;
-    padding: 1rem;
+    padding: 1.1rem;
     background: rgba(9, 11, 15, 0.65);
+    display: grid;
+    gap: 0.9rem;
   }
 
-  .session-code {
-    margin: 0;
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 1rem;
-    color: #fef3c7;
+  .session-id {
+    display: grid;
+    gap: 0.25rem;
   }
 
   .session-meta {
-    margin: 0.35rem 0 0;
-    font-size: 0.9rem;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    font-size: 0.88rem;
+    color: #b8b8c0;
+    align-items: center;
+  }
+
+  .session-print-badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .session-print-badge.is-printed {
+    color: #a7f3d0;
+  }
+
+  .session-print-badge.is-unprinted {
+    color: #fcd34d;
+  }
+
+  .session-actions {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .session-actions-primary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .session-actions-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .session-actions-secondary .studio-secondary {
+    min-height: 2.35rem;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.82rem;
   }
 
   .session-links {
@@ -1075,16 +1308,38 @@
     flex-wrap: wrap;
   }
 
+  .session-code {
+    margin: 0;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #fef3c7;
+  }
+
   .session-links a {
     color: #fde68a;
+    font-size: 0.88rem;
   }
 
   .session-grid {
-    margin-top: 0.8rem;
+    border-top: 1px solid rgba(161, 161, 170, 0.1);
+    padding-top: 0.75rem;
   }
 
   .session-contact {
-    margin: 0.9rem 0 0;
+    margin: 0;
+    color: #b8b8c0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .session-contact-label {
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(212, 212, 216, 0.5);
+    margin-right: 0.25rem;
   }
 
   @media (max-width: 900px) {
@@ -1103,7 +1358,8 @@
     .studio-panel-head,
     .session-head,
     .studio-actions,
-    .print-options {
+    .print-options,
+    .session-toolbar {
       flex-direction: column;
       align-items: start;
     }

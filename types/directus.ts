@@ -20,6 +20,10 @@ export const DEFAULT_CMS_SITE_SETTINGS: CmsSiteSettings = {
   secondaryCtaLabel: "Support me",
   secondaryCtaUrl: "https://ko-fi.com/verycrunchy",
   bio: "",
+  streetDeliveryRequestMessageTemplate:
+    "Hi! I photographed you recently and I’m sorting the photos now.\nWhen you get a chance, could you fill in this short form? [form link]\nIt helps me make sure I match the right photos to the right person, and it lets you note your preference for public sharing.\nOnce they’re ready, I’ll send you a private link where you can view and download everything in full quality.\n\nHoi! Ik heb je onlangs gefotografeerd en ik ben de foto’s nu aan het uitzoeken.\nAls je even tijd hebt, zou je dit korte formulier kunnen invullen? [form link]\nHet helpt me om zeker te weten dat ik de juiste foto’s aan de juiste persoon koppel, en je kunt daar ook je voorkeur voor openbare publicatie aangeven.\nZodra ze klaar zijn, stuur ik je een privelink waarmee je alles in volledige kwaliteit kunt bekijken en downloaden.",
+  streetDeliveryReadyMessageTemplate:
+    "Hi! Your photos are ready. Here’s your private gallery link where you can view and download everything in full quality: [gallery link]\n\nHoi! Je foto’s zijn klaar. Hier is je private gallery link waarmee je alles in volledige kwaliteit kunt bekijken en downloaden: [gallery link]",
 };
 
 export interface DirectusAsset {
@@ -82,6 +86,8 @@ export interface DirectusSiteSettings {
   secondary_cta_label?: string | null;
   secondary_cta_url?: string | null;
   bio?: string | null;
+  street_delivery_request_message_template?: string | null;
+  street_delivery_ready_message_template?: string | null;
 }
 
 export interface DirectusPost {
@@ -205,6 +211,7 @@ export interface DirectusStreetDeliverySession {
   code: string;
   date_created?: string | null;
   date_updated?: string | null;
+  printed_at?: string | null;
   photographed_at?: string | null;
   location?: string | null;
   notes?: string | null;
@@ -319,6 +326,8 @@ export interface CmsSiteSettings {
   secondaryCtaLabel: string;
   secondaryCtaUrl: string;
   bio: string;
+  streetDeliveryRequestMessageTemplate: string;
+  streetDeliveryReadyMessageTemplate: string;
 }
 
 export interface CmsProject {
@@ -482,6 +491,8 @@ export interface CmsStreetDeliveryAdminSessionSummary {
   status: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  printedAt: string | null;
+  printed: boolean;
   photographedAt: string | null;
   location: string | null;
   publicEnabled: boolean;
@@ -494,6 +505,17 @@ export interface CmsStreetDeliveryAdminSessionSummary {
   publicPath: string;
   galleryPath: string | null;
   latestContact: CmsStreetDeliveryAdminContactPreview | null;
+}
+
+export interface CmsStreetDeliveryAdminPhotoLink {
+  id: number;
+  sort: number | null;
+  photo: CmsPhotoSummary | null;
+}
+
+export interface CmsStreetDeliveryAdminSessionDetail extends CmsStreetDeliveryAdminSessionSummary {
+  contacts: CmsStreetDeliveryAdminContactPreview[];
+  photos: CmsStreetDeliveryAdminPhotoLink[];
 }
 
 export interface CmsPhoto extends CmsPhotoSummary {

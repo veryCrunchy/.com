@@ -59,6 +59,8 @@ const SITE_SETTINGS_FIELDS = [
   "secondary_cta_label",
   "secondary_cta_url",
   "bio",
+  "street_delivery_request_message_template",
+  "street_delivery_ready_message_template",
 ];
 
 const POST_FIELDS = [
@@ -554,6 +556,12 @@ export function normalizeSiteSettings(
     secondaryCtaLabel: settings?.secondary_cta_label || DEFAULT_CMS_SITE_SETTINGS.secondaryCtaLabel,
     secondaryCtaUrl: settings?.secondary_cta_url || DEFAULT_CMS_SITE_SETTINGS.secondaryCtaUrl,
     bio: settings?.bio || DEFAULT_CMS_SITE_SETTINGS.bio,
+    streetDeliveryRequestMessageTemplate:
+      settings?.street_delivery_request_message_template
+      || DEFAULT_CMS_SITE_SETTINGS.streetDeliveryRequestMessageTemplate,
+    streetDeliveryReadyMessageTemplate:
+      settings?.street_delivery_ready_message_template
+      || DEFAULT_CMS_SITE_SETTINGS.streetDeliveryReadyMessageTemplate,
   };
 }
 

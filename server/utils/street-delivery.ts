@@ -4,6 +4,7 @@ import {
   createDirectus,
   createItem,
   createItems,
+  deleteItem,
   readItems,
   rest,
   staticToken,
@@ -17,6 +18,8 @@ import { getDirectusClient, normalizePhotoSummary } from "~/server/utils/directu
 import type {
   CmsPhotoSummary,
   CmsStreetDeliveryAdminContactPreview,
+  CmsStreetDeliveryAdminPhotoLink,
+  CmsStreetDeliveryAdminSessionDetail,
   CmsStreetDeliveryAdminSessionSummary,
   CmsStreetDeliveryContactMethod,
   CmsStreetDeliveryGallery,
@@ -32,10 +35,27 @@ import type {
 
 const SESSION_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const GALLERY_TOKEN_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz";
+const STREET_PHOTO_SLUG_ALPHABET = "23456789abcdefghijkmnpqrstuvwxyz";
 const SESSION_CODE_BODY_LENGTH = 10;
 const GALLERY_TOKEN_LENGTH = 24;
 
 const STREET_SESSION_FIELDS = [
+  "id",
+  "status",
+  "code",
+  "date_created",
+  "date_updated",
+  "printed_at",
+  "photographed_at",
+  "location",
+  "public_enabled",
+  "gallery_token",
+  "last_submission_at",
+  "delivered_at",
+  "notes",
+] as const;
+
+const STREET_SESSION_FIELDS_FALLBACK = [
   "id",
   "status",
   "code",
@@ -94,6 +114,11 @@ const STREET_GALLERY_LINK_FIELDS = [
 type StreetDeliveryClient = NonNullable<ReturnType<typeof getDirectusClient>>;
 type DirectusTokenClient = NonNullable<ReturnType<typeof getDirectusClient>>;
 
+type StreetDeliverySessionQueryResult = {
+  sessions: DirectusStreetDeliverySession[];
+  printedAtAvailable: boolean;
+};
+
 export type StreetDeliverySubmissionInput = {
   contactMethod: CmsStreetDeliveryContactMethod;
   contactValue: string;
@@ -113,8 +138,6 @@ export type StreetDeliverySubmissionInput = {
 export type StreetDeliveryAdminBatchCreateInput = {
   count?: number;
   prefix?: string | null;
-  photographedAt?: string | null;
-  location?: string | null;
 };
 
 export type StreetDeliveryAdminSessionUpdateInput = {
@@ -122,7 +145,16 @@ export type StreetDeliveryAdminSessionUpdateInput = {
   photographedAt?: string | null;
   location?: string | null;
   publicEnabled?: boolean;
+  printedAt?: string | null;
   regenerateGalleryToken?: boolean;
+};
+
+export type StreetDeliveryAdminUploadInput = {
+  files: Array<{
+    filename?: string;
+    type?: string;
+    data: Uint8Array;
+  }>;
 };
 
 function requireStreetDeliveryClient(event?: H3Event): StreetDeliveryClient {
@@ -187,6 +219,129 @@ function withDirectusAuthGuard(error: unknown): never {
   }
 
   throw error;
+}
+
+function isPrintedAtUnavailableError(error: unknown) {
+  const fragments: string[] = [];
+
+  const visit = (value: unknown, depth = 0) => {
+    if (depth > 4 || value == null) {
+      return;
+    }
+
+    if (typeof value === "string") {
+      fragments.push(value);
+      return;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      fragments.push(String(value));
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        visit(entry, depth + 1);
+      }
+
+      return;
+    }
+
+    if (typeof value === "object") {
+      for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+        if (key === "response" || key === "request" || key === "stack" || key === "cause") {
+          continue;
+        }
+
+        visit(entry, depth + 1);
+      }
+    }
+  };
+
+  visit(error);
+
+  const text = fragments.join(" | ");
+
+  return (
+    text.includes("printed_at")
+    && /(permission|access field|does not exist|unknown field|forbidden|invalid)/i.test(text)
+  );
+}
+
+function createPrintedAtUnavailableError() {
+  return createError({
+    statusCode: 503,
+    statusMessage:
+      "The `printed_at` field is not available to this Directus role yet. Run the street-delivery setup and grant your admin role access to that field.",
+  });
+}
+
+async function readStreetDeliverySessionRecords(
+  client: StreetDeliveryClient | DirectusTokenClient,
+  query: Record<string, unknown>
+): Promise<StreetDeliverySessionQueryResult> {
+  try {
+    const sessions = (await client.request(
+      readItems("street_delivery_sessions", {
+        ...query,
+        fields: STREET_SESSION_FIELDS as never,
+      })
+    )) as DirectusStreetDeliverySession[];
+
+    return {
+      sessions,
+      printedAtAvailable: true,
+    };
+  } catch (error) {
+    if (!isPrintedAtUnavailableError(error)) {
+      throw error;
+    }
+
+    const sessions = (await client.request(
+      readItems("street_delivery_sessions", {
+        ...query,
+        fields: STREET_SESSION_FIELDS_FALLBACK as never,
+      })
+    )) as DirectusStreetDeliverySession[];
+
+    return {
+      sessions,
+      printedAtAvailable: false,
+    };
+  }
+}
+
+async function createStreetDeliverySessionRecords(
+  client: DirectusTokenClient,
+  items: Array<Record<string, unknown>>
+): Promise<StreetDeliverySessionQueryResult> {
+  try {
+    const sessions = (await client.request(
+      createItems("street_delivery_sessions", items, {
+        fields: STREET_SESSION_FIELDS as never,
+      })
+    )) as DirectusStreetDeliverySession[];
+
+    return {
+      sessions,
+      printedAtAvailable: true,
+    };
+  } catch (error) {
+    if (!isPrintedAtUnavailableError(error)) {
+      throw error;
+    }
+
+    const sessions = (await client.request(
+      createItems("street_delivery_sessions", items, {
+        fields: STREET_SESSION_FIELDS_FALLBACK as never,
+      })
+    )) as DirectusStreetDeliverySession[];
+
+    return {
+      sessions,
+      printedAtAvailable: false,
+    };
+  }
 }
 
 function normalizeSessionCode(rawCode: string) {
@@ -330,6 +485,58 @@ function normalizeSessionStatus(rawStatus: string | null | undefined) {
     statusCode: 400,
     statusMessage: "Invalid status.",
   });
+}
+
+function slugifyValue(value: string) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+}
+
+function filenameStem(filename: string) {
+  return String(filename || "").replace(/\.[^.]+$/, "");
+}
+
+function filenameToTitle(filename: string) {
+  const stem = filenameStem(filename)
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!stem) {
+    return "Street Delivery Photo";
+  }
+
+  return stem
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function createStreetDeliveryPhotoSlug(sessionCode: string, filename: string) {
+  const base = slugifyValue(`${sessionCode} ${filenameStem(filename)}`) || slugifyValue(sessionCode) || "street-delivery";
+  const suffix = randomFromAlphabet(6, STREET_PHOTO_SLUG_ALPHABET);
+
+  return `${base.slice(0, 96)}-${suffix}`;
+}
+
+function normalizeAdminPhotoLink(
+  event: H3Event | undefined,
+  link: DirectusStreetDeliverySessionPhoto
+): CmsStreetDeliveryAdminPhotoLink {
+  return {
+    id: link.id,
+    sort: link.sort ?? null,
+    photo:
+      link.photos_id && typeof link.photos_id === "object"
+        ? normalizePhotoSummary(event, link.photos_id as DirectusPhoto)
+        : null,
+  };
 }
 
 function randomFromAlphabet(length: number, alphabet: string) {
@@ -481,16 +688,14 @@ async function findStreetDeliverySessionByCode(
   code: string
 ) {
   const client = requireStreetDeliveryClient(event);
-  const [session] = (await client.request(
-    readItems("street_delivery_sessions", {
-      fields: STREET_SESSION_FIELDS as never,
-      filter: {
-        code: { _eq: normalizeSessionCode(code) },
-        public_enabled: { _eq: true },
-      },
-      limit: 1,
-    })
-  )) as DirectusStreetDeliverySession[];
+  const { sessions } = await readStreetDeliverySessionRecords(client, {
+    filter: {
+      code: { _eq: normalizeSessionCode(code) },
+      public_enabled: { _eq: true },
+    },
+    limit: 1,
+  });
+  const [session] = sessions;
 
   if (!session || session.status === "archived") {
     return null;
@@ -566,6 +771,8 @@ function normalizeAdminSessionSummary(
     status: session.status || null,
     createdAt: session.date_created || null,
     updatedAt: session.date_updated || null,
+    printedAt: session.printed_at || null,
+    printed: Boolean(session.printed_at),
     photographedAt: session.photographed_at || null,
     location: session.location || null,
     publicEnabled: Boolean(session.public_enabled),
@@ -585,14 +792,11 @@ async function readAdminSessionSummaries(
   client: DirectusTokenClient,
   filter?: Record<string, unknown>
 ) {
-  const sessions = (await client.request(
-    readItems("street_delivery_sessions", {
-      fields: STREET_SESSION_FIELDS as never,
-      filter: filter as never,
-      sort: ["-date_created", "-id"] as never,
-      limit: -1,
-    })
-  )) as DirectusStreetDeliverySession[];
+  const { sessions } = await readStreetDeliverySessionRecords(client, {
+    filter: filter as never,
+    sort: ["-date_created", "-id"] as never,
+    limit: -1,
+  });
 
   if (!sessions.length) {
     return [];
@@ -645,6 +849,48 @@ async function readAdminSessionSummaries(
       photoCountBySessionId.get(session.id) ?? 0
     )
   );
+}
+
+async function readAdminSessionDetail(
+  event: H3Event,
+  client: DirectusTokenClient,
+  sessionId: number
+): Promise<CmsStreetDeliveryAdminSessionDetail> {
+  const [summary] = await readAdminSessionSummaries(client, { id: { _eq: sessionId } });
+
+  if (!summary) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: "Session not found.",
+    });
+  }
+
+  const contacts = (await client.request(
+    readItems("street_delivery_contacts", {
+      fields: STREET_CONTACT_FIELDS as never,
+      filter: {
+        street_delivery_sessions_id: { _eq: sessionId },
+      },
+      sort: ["-date_created", "-id"] as never,
+      limit: -1,
+    })
+  )) as DirectusStreetDeliveryContact[];
+  const photoLinks = (await client.request(
+    readItems("street_delivery_session_photos", {
+      fields: STREET_GALLERY_LINK_FIELDS as never,
+      filter: {
+        street_delivery_sessions_id: { _eq: sessionId },
+      },
+      sort: ["sort", "id"] as never,
+      limit: -1,
+    })
+  )) as DirectusStreetDeliverySessionPhoto[];
+
+  return {
+    ...summary,
+    contacts: contacts.map((contact) => normalizeAdminContactPreview(contact)),
+    photos: photoLinks.map((link) => normalizeAdminPhotoLink(event, link)),
+  };
 }
 
 export async function readStreetDeliverySessionByCode(
@@ -745,17 +991,15 @@ export async function readStreetDeliveryGalleryByToken(
     return null;
   }
 
-  const [session] = (await client.request(
-    readItems("street_delivery_sessions", {
-      fields: STREET_SESSION_FIELDS as never,
-      filter: {
-        gallery_token: { _eq: galleryToken },
-        public_enabled: { _eq: true },
-        status: { _eq: "delivered" },
-      },
-      limit: 1,
-    })
-  )) as DirectusStreetDeliverySession[];
+  const { sessions } = await readStreetDeliverySessionRecords(client, {
+    filter: {
+      gallery_token: { _eq: galleryToken },
+      public_enabled: { _eq: true },
+      status: { _eq: "delivered" },
+    },
+    limit: 1,
+  });
+  const [session] = sessions;
 
   if (!session || !session.gallery_token) {
     return null;
@@ -794,6 +1038,217 @@ export async function readStreetDeliveryAdminSessions(
   }
 }
 
+export async function readStreetDeliveryAdminSessionDetail(
+  event: H3Event,
+  sessionId: number
+): Promise<CmsStreetDeliveryAdminSessionDetail> {
+  const client = requireStreetDeliveryAdminClient(event);
+
+  if (!Number.isInteger(sessionId) || sessionId <= 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid session id.",
+    });
+  }
+
+  try {
+    return await readAdminSessionDetail(event, client, sessionId);
+  } catch (error) {
+    withDirectusAuthGuard(error);
+  }
+}
+
+export async function uploadStreetDeliveryAdminPhotos(
+  event: H3Event,
+  sessionId: number,
+  input: StreetDeliveryAdminUploadInput
+): Promise<CmsStreetDeliveryAdminSessionDetail> {
+  const client = requireStreetDeliveryAdminClient(event);
+  const files = (input.files || []).filter((file) => file.data?.length);
+
+  if (!Number.isInteger(sessionId) || sessionId <= 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid session id.",
+    });
+  }
+
+  if (!files.length) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Choose at least one photo to upload.",
+    });
+  }
+
+  if (files.length > 40) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Upload 40 photos or fewer at a time.",
+    });
+  }
+
+  try {
+    const { sessions } = await readStreetDeliverySessionRecords(client, {
+      filter: { id: { _eq: sessionId } },
+      limit: 1,
+    });
+    const [session] = sessions;
+
+    if (!session) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: "Session not found.",
+      });
+    }
+
+    const existingLinks = (await client.request(
+      readItems("street_delivery_session_photos", {
+        fields: ["id", "sort"] as never,
+        filter: {
+          street_delivery_sessions_id: { _eq: sessionId },
+        },
+        sort: ["sort", "id"] as never,
+        limit: -1,
+      })
+    )) as Array<{ id: number; sort?: number | null }>;
+    let nextSort = existingLinks.reduce((max, link) => Math.max(max, Number(link.sort) || 0), 0) + 1;
+
+    for (const fileEntry of files) {
+      if (fileEntry.data.length > 30 * 1024 * 1024) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: "Each photo must be 30 MB or smaller.",
+        });
+      }
+
+      const filename =
+        String(fileEntry.filename || "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "")
+        || `street-delivery-${session.code}-${nextSort}.jpg`;
+      const file = new File([Buffer.from(fileEntry.data)], filename, {
+        type: fileEntry.type || "application/octet-stream",
+      });
+      const form = new FormData();
+      const title = filenameToTitle(filename);
+
+      form.set("file", file);
+      form.set("title", title);
+      form.set("description", `Street delivery upload for session ${session.code}`);
+
+      const uploaded = (await client.request(
+        uploadFiles(form, {
+          fields: ["id", "title", "description", "width", "height", "filename_download"] as never,
+        })
+      )) as DirectusAsset | DirectusAsset[];
+      const asset = Array.isArray(uploaded) ? uploaded[0] || null : uploaded;
+
+      if (!asset?.id) {
+        throw createError({
+          statusCode: 500,
+          statusMessage: "Directus file upload failed.",
+        });
+      }
+
+      const photo = (await client.request(
+        createItem(
+          "photos",
+          {
+            status: "draft",
+            slug: createStreetDeliveryPhotoSlug(session.code, filename),
+            title,
+            description: `Street delivery photo for session ${session.code}`,
+            image: asset.id,
+            published_at: null,
+            taken_at: session.photographed_at || null,
+            location: session.location || null,
+            camera: null,
+            lens: null,
+            featured: false,
+            tags: ["street-delivery", slugifyValue(session.code)],
+          },
+          {
+            fields: [
+              "id",
+              "slug",
+              "title",
+              "description",
+              "published_at",
+              "taken_at",
+              "location",
+              "camera",
+              "lens",
+              "tags",
+              {
+                image: ["id", "title", "description", "width", "height", "filename_download"],
+              },
+            ] as never,
+          }
+        )
+      )) as DirectusPhoto;
+
+      await client.request(
+        createItem("street_delivery_session_photos", {
+          street_delivery_sessions_id: sessionId,
+          photos_id: photo.id,
+          sort: nextSort,
+        })
+      );
+
+      nextSort += 1;
+    }
+
+    if (session.status === "new") {
+      await client.request(
+        updateItem("street_delivery_sessions", sessionId, {
+          status: "matched",
+        })
+      );
+    }
+
+    return await readAdminSessionDetail(event, client, sessionId);
+  } catch (error) {
+    withDirectusAuthGuard(error);
+  }
+}
+
+export async function deleteStreetDeliveryAdminSessionPhotoLink(
+  event: H3Event,
+  linkId: number
+): Promise<CmsStreetDeliveryAdminSessionDetail> {
+  const client = requireStreetDeliveryAdminClient(event);
+
+  if (!Number.isInteger(linkId) || linkId <= 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid photo link id.",
+    });
+  }
+
+  try {
+    const [link] = (await client.request(
+      readItems("street_delivery_session_photos", {
+        fields: ["id", "street_delivery_sessions_id"] as never,
+        filter: { id: { _eq: linkId } },
+        limit: 1,
+      })
+    )) as Array<{ id: number; street_delivery_sessions_id: number }>;
+
+    if (!link) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: "Linked photo not found.",
+      });
+    }
+
+    await client.request(
+      deleteItem("street_delivery_session_photos", linkId)
+    );
+
+    return await readAdminSessionDetail(event, client, Number(link.street_delivery_sessions_id));
+  } catch (error) {
+    withDirectusAuthGuard(error);
+  }
+}
+
 export async function createStreetDeliveryAdminBatch(
   event: H3Event,
   input: StreetDeliveryAdminBatchCreateInput
@@ -801,8 +1256,6 @@ export async function createStreetDeliveryAdminBatch(
   const client = requireStreetDeliveryAdminClient(event);
   const count = Math.max(1, Math.min(200, Number(input.count || 1)));
   const prefix = sanitizeCodePrefix(input.prefix);
-  const photographedAt = normalizeOptionalDatetime(input.photographedAt);
-  const location = normalizeOptionalText(input.location, 255);
 
   try {
     const [codes, galleryTokens] = await Promise.all([
@@ -810,22 +1263,15 @@ export async function createStreetDeliveryAdminBatch(
       generateUniqueGalleryTokens(client, count),
     ]);
 
-    const created = (await client.request(
-      createItems(
-        "street_delivery_sessions",
-        codes.map((code, index) => ({
-          code,
-          status: "new",
-          public_enabled: true,
-          gallery_token: galleryTokens[index],
-          ...(photographedAt ? { photographed_at: photographedAt } : {}),
-          ...(location ? { location } : {}),
-        })),
-        {
-          fields: STREET_SESSION_FIELDS as never,
-        }
-      )
-    )) as DirectusStreetDeliverySession[];
+    const { sessions: created } = await createStreetDeliverySessionRecords(
+      client,
+      codes.map((code, index) => ({
+        code,
+        status: "new",
+        public_enabled: true,
+        gallery_token: galleryTokens[index],
+      }))
+    );
 
     return created.map((session) => normalizeAdminSessionSummary(session, [], 0));
   } catch (error) {
@@ -848,13 +1294,11 @@ export async function updateStreetDeliveryAdminSession(
   }
 
   try {
-    const [session] = (await client.request(
-      readItems("street_delivery_sessions", {
-        fields: STREET_SESSION_FIELDS as never,
-        filter: { id: { _eq: sessionId } },
-        limit: 1,
-      })
-    )) as DirectusStreetDeliverySession[];
+    const sessionQuery = await readStreetDeliverySessionRecords(client, {
+      filter: { id: { _eq: sessionId } },
+      limit: 1,
+    });
+    const [session] = sessionQuery.sessions;
 
     if (!session) {
       throw createError({
@@ -883,6 +1327,14 @@ export async function updateStreetDeliveryAdminSession(
       payload.public_enabled = Boolean(input.publicEnabled);
     }
 
+    if ("printedAt" in input) {
+      if (!sessionQuery.printedAtAvailable) {
+        throw createPrintedAtUnavailableError();
+      }
+
+      payload.printed_at = normalizeOptionalDatetime(input.printedAt);
+    }
+
     if (input.regenerateGalleryToken) {
       const [token] = await generateUniqueGalleryTokens(client, 1);
       payload.gallery_token = token;
@@ -906,6 +1358,80 @@ export async function updateStreetDeliveryAdminSession(
     );
 
     return (await readAdminSessionSummaries(client, { id: { _eq: sessionId } }))[0]!;
+  } catch (error) {
+    withDirectusAuthGuard(error);
+  }
+}
+
+export async function deleteStreetDeliveryAdminSession(
+  event: H3Event,
+  sessionId: number
+) {
+  const client = requireStreetDeliveryAdminClient(event);
+
+  if (!Number.isInteger(sessionId) || sessionId <= 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid session id.",
+    });
+  }
+
+  try {
+    const sessionQuery = await readStreetDeliverySessionRecords(client, {
+      filter: { id: { _eq: sessionId } },
+      limit: 1,
+    });
+    const [session] = sessionQuery.sessions;
+
+    if (!session) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: "Session not found.",
+      });
+    }
+
+    if (!sessionQuery.printedAtAvailable) {
+      throw createPrintedAtUnavailableError();
+    }
+
+    if (session.printed_at) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Printed codes cannot be deleted. Mark it unprinted first if this was a mistake.",
+      });
+    }
+
+    const [contactCountRow] = (await client.request(
+      readItems("street_delivery_contacts", {
+        fields: ["id"] as never,
+        filter: {
+          street_delivery_sessions_id: { _eq: sessionId },
+        },
+        limit: 1,
+      })
+    )) as Array<{ id: number }>;
+    const [photoLinkRow] = (await client.request(
+      readItems("street_delivery_session_photos", {
+        fields: ["id"] as never,
+        filter: {
+          street_delivery_sessions_id: { _eq: sessionId },
+        },
+        limit: 1,
+      })
+    )) as Array<{ id: number }>;
+
+    if (contactCountRow || photoLinkRow) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Only unused codes can be deleted. This session already has contact or photo data attached.",
+      });
+    }
+
+    await client.request(
+      deleteItem("street_delivery_sessions", sessionId)
+    );
+
+    return { success: true };
   } catch (error) {
     withDirectusAuthGuard(error);
   }

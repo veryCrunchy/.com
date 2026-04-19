@@ -18,10 +18,13 @@ Create a `.env` file with the Directus connection details:
 
 ```bash
 NUXT_PUBLIC_DIRECTUS_URL=https://your-directus-instance.example.com
+NUXT_PUBLIC_SITE_URL_DISPLAY=https://verycrunchy.com
 DIRECTUS_TOKEN=your_directus_static_token
 ```
 
 `DIRECTUS_TOKEN` is server-only. For the public site it can be omitted if your published collections are readable through Directus policies, but it is still required for local schema scripts and any write-backed features such as street-photo delivery intake.
+
+`NUXT_PUBLIC_SITE_URL_DISPLAY` is optional. If set, the street-delivery studio uses that URL on printed cards and copied gallery links instead of the current browser origin, which is useful when generating production-ready cards from `localhost`.
 
 ## Directus Collections
 
@@ -171,8 +174,16 @@ Suggested workflow:
 2. Generate a batch of codes with `pnpm street:codes`.
 3. Or sign into `/studio/street-delivery` with your Directus account to create, print, and manage batches in-browser.
 4. Print cards that point to `https://your-site.example.com/p/CODE`.
-5. When someone submits the form, their contact lands in `street_delivery_contacts`.
-6. In Directus or the studio dashboard, assign matched images through the `photos` field on the session.
-7. Mark the session delivered when the gallery is ready, then share `/g/{token}` manually.
+5. Add `location` and `photographed_at` later, once the actual shoot details are known.
+6. When someone submits the form, their contact lands in `street_delivery_contacts`.
+7. In Directus or the studio dashboard, assign matched images through the `photos` field on the session.
+8. Mark the session delivered when the gallery is ready, then share `/g/{token}` manually.
+
+The studio also tracks `printed_at`, so you can filter printed vs unprinted codes, requeue any existing code for reprint, and delete unused codes before they’ve been printed or claimed.
+
+For messaging, the studio can also copy per-session outreach and delivery text with the correct link already inserted. Edit these in Directus under `site_settings`:
+
+- `street_delivery_request_message_template` with `[form link]`
+- `street_delivery_ready_message_template` with `[gallery link]`
 
 This feature intentionally does not create public Directus permissions for contact data. The public intake routes use your server-side `DIRECTUS_TOKEN` for privacy-safe reads and writes, while `/studio/street-delivery` uses real Directus user auth.

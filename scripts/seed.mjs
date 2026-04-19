@@ -187,6 +187,26 @@ const SITE_SETTINGS_SCHEMA = {
       meta: { interface: "input", options: { placeholder: "Photos" }, width: "half" },
       schema: { default_value: "Photos", is_nullable: true },
     },
+    {
+      field: "street_delivery_request_message_template",
+      type: "text",
+      meta: {
+        interface: "input-multiline",
+        width: "full",
+        note: "Use [form link] where the session request URL should appear.",
+      },
+      schema: { default_value: null, is_nullable: true },
+    },
+    {
+      field: "street_delivery_ready_message_template",
+      type: "text",
+      meta: {
+        interface: "input-multiline",
+        width: "full",
+        note: "Use [gallery link] where the delivered gallery URL should appear.",
+      },
+      schema: { default_value: null, is_nullable: true },
+    },
   ],
 };
 
@@ -467,6 +487,10 @@ const SITE_SETTINGS_SEED = {
   nav_cta_url: "https://ko-fi.com/verycrunchy",
   posts_label: "Blog",
   photos_label: "Photos",
+  street_delivery_request_message_template:
+    "Hi! I photographed you recently and I’m sorting the photos now.\nWhen you get a chance, could you fill in this short form? [form link]\nIt helps me make sure I match the right photos to the right person, and it lets you note your preference for public sharing.\nOnce they’re ready, I’ll send you a private link where you can view and download everything in full quality.\n\nHoi! Ik heb je onlangs gefotografeerd en ik ben de foto’s nu aan het uitzoeken.\nAls je even tijd hebt, zou je dit korte formulier kunnen invullen? [form link]\nHet helpt me om zeker te weten dat ik de juiste foto’s aan de juiste persoon koppel, en je kunt daar ook je voorkeur voor openbare publicatie aangeven.\nZodra ze klaar zijn, stuur ik je een privelink waarmee je alles in volledige kwaliteit kunt bekijken en downloaden.",
+  street_delivery_ready_message_template:
+    "Hi! Your photos are ready. Here’s your private gallery link where you can view and download everything in full quality: [gallery link]\n\nHoi! Je foto’s zijn klaar. Hier is je private gallery link waarmee je alles in volledige kwaliteit kunt bekijken en downloaden: [gallery link]",
 };
 
 const POSTS_SEED = [

@@ -60,6 +60,7 @@ export default defineNuxtConfig({
     photoIngestAiModel: process.env.PHOTO_INGEST_AI_MODEL,
     public: {
       directusUrl: process.env.NUXT_PUBLIC_DIRECTUS_URL || "",
+      siteUrlDisplay: process.env.NUXT_PUBLIC_SITE_URL_DISPLAY || "",
       env: process.env.NODE_ENV || "development",
     },
   },

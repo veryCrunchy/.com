@@ -75,6 +75,20 @@ const CONTACT_METHOD_CHOICES = [
   { text: "Phone", value: "phone" },
 ];
 
+const STREET_DELIVERY_REQUEST_TEMPLATE_DEFAULT = `Hi! I photographed you recently and I’m sorting the photos now.
+When you get a chance, could you fill in this short form? [form link]
+It helps me make sure I match the right photos to the right person, and it lets you note your preference for public sharing.
+Once they’re ready, I’ll send you a private link where you can view and download everything in full quality.
+
+Hoi! Ik heb je onlangs gefotografeerd en ik ben de foto’s nu aan het uitzoeken.
+Als je even tijd hebt, zou je dit korte formulier kunnen invullen? [form link]
+Het helpt me om zeker te weten dat ik de juiste foto’s aan de juiste persoon koppel, en je kunt daar ook je voorkeur voor openbare publicatie aangeven.
+Zodra ze klaar zijn, stuur ik je een privelink waarmee je alles in volledige kwaliteit kunt bekijken en downloaden.`;
+
+const STREET_DELIVERY_READY_TEMPLATE_DEFAULT = `Hi! Your photos are ready. Here’s your private gallery link where you can view and download everything in full quality: [gallery link]
+
+Hoi! Je foto’s zijn klaar. Hier is je private gallery link waarmee je alles in volledige kwaliteit kunt bekijken en downloaden: [gallery link]`;
+
 if (await collectionExists("street_delivery_sessions")) {
   console.log("  –  street_delivery_sessions collection already exists");
 } else {
@@ -132,6 +146,16 @@ if (await collectionExists("street_delivery_sessions")) {
         field: "date_updated",
         type: "timestamp",
         meta: { special: ["date-updated"], readonly: true, hidden: true },
+        schema: { is_nullable: true },
+      },
+      {
+        field: "printed_at",
+        type: "timestamp",
+        meta: {
+          interface: "datetime",
+          width: "half",
+          note: "When this card code was physically printed.",
+        },
         schema: { is_nullable: true },
       },
       {
@@ -197,6 +221,66 @@ if (await collectionExists("street_delivery_sessions")) {
     console.error("  ❌  street_delivery_sessions:", JSON.stringify(result.data));
     process.exit(1);
   }
+}
+
+if (await fieldExists("street_delivery_sessions", "printed_at")) {
+  console.log("  –  street_delivery_sessions.printed_at field already exists");
+} else {
+  const result = await api("POST", "/fields/street_delivery_sessions", {
+    field: "printed_at",
+    type: "timestamp",
+    meta: {
+      interface: "datetime",
+      width: "half",
+      note: "When this card code was physically printed.",
+    },
+    schema: { is_nullable: true },
+  });
+
+  if (result.ok) console.log("  ✔  field: street_delivery_sessions.printed_at");
+  else console.warn("  ⚠   printed_at field:", JSON.stringify(result.data));
+}
+
+if (await fieldExists("site_settings", "street_delivery_request_message_template")) {
+  console.log("  –  site_settings.street_delivery_request_message_template field already exists");
+} else {
+  const result = await api("POST", "/fields/site_settings", {
+    field: "street_delivery_request_message_template",
+    type: "text",
+    meta: {
+      interface: "input-multiline",
+      width: "full",
+      note: "Template for the outreach message. Use [form link] where the session URL should appear.",
+    },
+    schema: {
+      is_nullable: true,
+      default_value: STREET_DELIVERY_REQUEST_TEMPLATE_DEFAULT,
+    },
+  });
+
+  if (result.ok) console.log("  ✔  field: site_settings.street_delivery_request_message_template");
+  else console.warn("  ⚠   request message template field:", JSON.stringify(result.data));
+}
+
+if (await fieldExists("site_settings", "street_delivery_ready_message_template")) {
+  console.log("  –  site_settings.street_delivery_ready_message_template field already exists");
+} else {
+  const result = await api("POST", "/fields/site_settings", {
+    field: "street_delivery_ready_message_template",
+    type: "text",
+    meta: {
+      interface: "input-multiline",
+      width: "full",
+      note: "Template for the ready/gallery message. Use [gallery link] where the gallery URL should appear.",
+    },
+    schema: {
+      is_nullable: true,
+      default_value: STREET_DELIVERY_READY_TEMPLATE_DEFAULT,
+    },
+  });
+
+  if (result.ok) console.log("  ✔  field: site_settings.street_delivery_ready_message_template");
+  else console.warn("  ⚠   ready message template field:", JSON.stringify(result.data));
 }
 
 if (await collectionExists("street_delivery_contacts")) {

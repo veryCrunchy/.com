@@ -588,20 +588,20 @@
     <section class="ingest-shell">
       <header class="ingest-hero">
         <span class="ingest-kicker">Studio</span>
-        <h1>Photo Ingest Studio</h1>
-        <p>Path-based ingest over the existing manifest workflow. Prepare a batch, add metadata suggestions, make edits, then upload without dropping back to the terminal.</p>
+        <h1>Photo Studio</h1>
+        <p>Drop in file paths, enrich metadata, then publish — without leaving the browser or touching the terminal.</p>
         <div class="ingest-hero-notes">
           <div class="ingest-hero-note">
             <strong>Stills</strong>
-            <span>Prepare paths, tune copy, assign sets, then upload.</span>
+            <span>Prepare paths, tune copy, assign sets, then upload. One clear flow.</span>
           </div>
           <div class="ingest-hero-note">
             <strong>Motion</strong>
-            <span>Files named like <strong>moment_*</strong>, <strong>moment2_*</strong>, <strong>moment3_*</strong>, or <strong>moment4_*</strong> are auto-grouped during prepare. You can still adjust the motion frame list afterward.</span>
+            <span>Files named <strong>moment_*</strong>, <strong>moment2_*</strong> through <strong>moment4_*</strong> auto-group during prepare. Adjust the frame list on each card afterward.</span>
           </div>
           <div class="ingest-hero-note">
             <strong>Shots</strong>
-            <span>Attach extra stills to one parent photo when the moment needs alternates or details without becoming a full set.</span>
+            <span>Attach alternate stills to a parent photo when the moment has multiple angles but doesn't deserve its own set.</span>
           </div>
         </div>
       </header>
@@ -615,37 +615,46 @@
           placeholder="C:\Users\yarod\Pictures\Untitled Session\Output\moment2_DSCF5701.tif&#10;/mnt/f/Cam/Edited/moment1_DSCF6432.tif"
         />
         <div class="ingest-actions">
-          <button type="button" class="ingest-button ingest-button--primary" :disabled="busyAction !== null" @click="prepareManifest">
-            {{ busyAction === "prepare" ? "Preparing…" : "Prepare manifest" }}
-          </button>
-          <button type="button" class="ingest-button" :disabled="!manifest || busyAction !== null" @click="suggestManifest">
-            {{ busyAction === "suggest" ? "Suggesting…" : "Suggest metadata" }}
-          </button>
-          <button type="button" class="ingest-button" :disabled="!manifest || busyAction !== null" @click="uploadManifest">
-            {{ busyAction === "upload" ? "Uploading…" : "Upload batch" }}
-          </button>
-          <button type="button" class="ingest-button ingest-button--ghost" :disabled="!manifest || busyAction !== null" @click="updateUploadedMetadata">
-            {{ busyAction === "update" ? "Updating metadata…" : "Update uploaded metadata" }}
-          </button>
-          <button type="button" class="ingest-button ingest-button--ghost" :disabled="!manifest || busyAction !== null" @click="repairUploadedMetadata">
-            {{ busyAction === "repair" ? "Repairing uploaded metadata…" : "Re-suggest and patch uploaded" }}
-          </button>
+          <div class="ingest-action-row">
+            <button type="button" class="ingest-button ingest-button--primary" :disabled="busyAction !== null" @click="prepareManifest">
+              {{ busyAction === "prepare" ? "Preparing…" : "Prepare" }}
+            </button>
+            <button type="button" class="ingest-button" :disabled="!manifest || busyAction !== null" @click="suggestManifest">
+              {{ busyAction === "suggest" ? "Suggesting…" : "Suggest metadata" }}
+            </button>
+            <button type="button" class="ingest-button" :disabled="!manifest || busyAction !== null" @click="uploadManifest">
+              {{ busyAction === "upload" ? "Uploading…" : "Upload batch" }}
+            </button>
+          </div>
+          <div class="ingest-action-row ingest-action-row--advanced">
+            <button type="button" class="ingest-button ingest-button--ghost" :disabled="!manifest || busyAction !== null" @click="updateUploadedMetadata">
+              {{ busyAction === "update" ? "Syncing…" : "Sync metadata to Directus" }}
+            </button>
+            <button type="button" class="ingest-button ingest-button--ghost" :disabled="!manifest || busyAction !== null" @click="repairUploadedMetadata">
+              {{ busyAction === "repair" ? "Re-suggesting…" : "Re-suggest & sync" }}
+            </button>
+          </div>
         </div>
         <div v-if="statusMessage" class="ingest-status" :class="`ingest-status--${statusTone}`" aria-live="polite">
           <span v-if="busyAction" class="ingest-status-spinner" aria-hidden="true" />
           <span class="ingest-status-copy">{{ statusMessage }}</span>
         </div>
-        <p class="ingest-note">This is intentionally local-first. It uses the same server environment and Directus token as the existing ingest scripts.</p>
-        <p class="ingest-note">Studio state is saved locally in this browser, so the current manifest and AI brief come back after refresh.</p>
-        <p class="ingest-note">Windows drive paths like <strong>C:\Users\...</strong> are converted to WSL mount paths automatically during prepare and upload.</p>
-        <p class="ingest-note">For motion images, the main photo stays in <code>sourcePath</code>. Extra sequence frames go in the motion frame list on that photo card.</p>
-        <p class="ingest-note">Use shots when one published photo needs multiple stills under the same slug. Each shot can keep its own role and optional copy.</p>
-        <p class="ingest-note">If the still image already exists in Directus, set an existing photo slug on the card and the upload will attach or replace motion frames on that record without replacing the main image.</p>
+        <details class="ingest-how">
+          <summary>How does this work?</summary>
+          <ul class="ingest-how-list">
+            <li>Local-first and stateful — manifest and brief survive a page refresh.</li>
+            <li>Uses the same server environment and Directus token as the CLI ingest scripts.</li>
+            <li>Windows paths like <strong>C:\Users\…</strong> are auto-converted to WSL mount paths during prepare and upload.</li>
+            <li>For motion photos, the main still stays in <em>source path</em>. Extra sequence frames go in the motion frame list on each card.</li>
+            <li>Use shots when one slug needs multiple alternates without a full set. Each shot keeps its own role and optional caption.</li>
+            <li>If a photo already exists in Directus, use attach mode to target it by slug — the upload replaces motion or shot data without touching the main image.</li>
+          </ul>
+        </details>
         <div class="ingest-live-tools">
           <button type="button" class="ingest-button ingest-button--ghost" :disabled="livePhotosLoading" @click="loadLivePhotos">
-            {{ livePhotosLoading ? "Loading live photos…" : livePhotosLoaded ? `Reload live photos (${livePhotos.length})` : "Load live photos" }}
+            {{ livePhotosLoading ? "Loading…" : livePhotosLoaded ? `Reload live photos (${livePhotos.length})` : "Load live photos" }}
           </button>
-          <p class="ingest-note">Load the live archive once, then use attach mode on a card to pick an existing photo by slug or from browser autocomplete.</p>
+          <p class="ingest-note">Load once to use attach mode — pick an existing photo by slug or from browser autocomplete.</p>
         </div>
         <p v-if="livePhotosError" class="ingest-error">{{ livePhotosError }}</p>
         <p v-if="suggestionSource" class="ingest-note">
@@ -670,28 +679,28 @@
               <strong>{{ setCount }}</strong>
             </div>
             <div>
-              <span class="ingest-stat-label">Shot Groups</span>
+              <span class="ingest-stat-label">Shot groups</span>
               <strong>{{ shotPhotoCount }}</strong>
             </div>
             <div>
-              <span class="ingest-stat-label">Motion Sequences</span>
+              <span class="ingest-stat-label">Motion sequences</span>
               <strong>{{ motionPhotoCount }}</strong>
             </div>
           </div>
 
           <div class="ingest-brief-head">
             <div>
-              <span class="ingest-label">AI Brief</span>
+              <span class="ingest-label">Story brief</span>
               <p class="ingest-section-note">
-                Before suggesting metadata, give the model the story you want it to preserve. The AI now inspects each image individually, then combines what it sees with the brief below.
+                Give the model the story before it suggests copy. It inspects each image individually, then weighs what it sees against the brief you write here.
               </p>
             </div>
           </div>
 
           <div class="ingest-brief-prompts">
-            <p class="ingest-note">What is happening here, or why does this frame matter?</p>
-            <p class="ingest-note">What should the caption emphasize: atmosphere, motion, isolation, humor, tension, place, or something else?</p>
-            <p class="ingest-note">Anything it should avoid saying or inferring?</p>
+            <p class="ingest-brief-prompt">What is happening here, or why does this frame matter?</p>
+            <p class="ingest-brief-prompt">What should the caption emphasize: atmosphere, motion, isolation, humor, tension, place?</p>
+            <p class="ingest-brief-prompt">Anything it should avoid saying or inferring?</p>
           </div>
 
           <div class="ingest-story-grid">
@@ -783,7 +792,7 @@
                   {{ photo.shots.length }} shot{{ photo.shots.length !== 1 ? "s" : "" }}
                 </span>
                 <button type="button" class="ingest-chip ingest-chip-button ingest-chip-button--danger" @click="removePhoto(index)">
-                  Remove card
+                  Remove
                 </button>
               </div>
             </div>
@@ -798,7 +807,7 @@
             <section v-if="isAttachToExisting(photo)" class="ingest-attach-panel">
               <div class="ingest-section-head">
                 <div>
-                  <span class="ingest-label">Attach Motion To Existing Photo</span>
+                  <span class="ingest-label">Attach to existing photo</span>
                   <p class="ingest-section-note">This mode leaves the existing photo’s title, slug, description, tags, and sets untouched. Only attached shots and motion frames are replaced.</p>
                 </div>
                 <button
@@ -1068,10 +1077,21 @@
   }
 
   .ingest-actions {
+    display: grid;
+    gap: 0.6rem;
+    margin-top: 1rem;
+  }
+
+  .ingest-action-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-top: 1rem;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  .ingest-action-row--advanced {
+    padding-top: 0.2rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
   }
 
   .ingest-button {
@@ -1092,10 +1112,10 @@
   }
 
   .ingest-button--ghost {
-    min-height: 2.35rem;
-    padding: 0.55rem 0.85rem;
+    min-height: 2.5rem;
+    padding: 0.6rem 0.9rem;
     background: rgba(4, 6, 7, 0.58);
-    font-size: 0.76rem;
+    font-size: 0.82rem;
   }
 
   .ingest-button:disabled {
@@ -1104,9 +1124,60 @@
   }
 
   .ingest-note {
-    margin-top: 0.85rem;
+    margin-top: 0.5rem;
     color: #94a3b8;
     line-height: 1.7;
+    font-size: 0.9rem;
+  }
+
+  .ingest-how {
+    margin-top: 1rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    background: rgba(4, 6, 7, 0.45);
+    overflow: hidden;
+  }
+
+  .ingest-how summary {
+    padding: 0.72rem 1rem;
+    font-size: 0.84rem;
+    color: #94a3b8;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ingest-how summary::before {
+    content: "▸";
+    font-size: 0.65rem;
+    opacity: 0.6;
+    transition: transform 0.15s;
+  }
+
+  .ingest-how[open] summary::before {
+    transform: rotate(90deg);
+  }
+
+  .ingest-how-list {
+    margin: 0;
+    padding: 0 1rem 0.85rem 2rem;
+    display: grid;
+    gap: 0.45rem;
+    color: #94a3b8;
+    font-size: 0.84rem;
+    line-height: 1.65;
+  }
+
+  .ingest-brief-prompt {
+    margin-top: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 2px solid rgba(74, 222, 128, 0.24);
+    color: #94a3b8;
+    font-size: 0.84rem;
+    line-height: 1.6;
   }
 
   .ingest-status {
