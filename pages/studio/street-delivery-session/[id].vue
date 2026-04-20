@@ -710,6 +710,15 @@
                 <div class="photo-copy">
                   <strong>{{ link.photo?.title || "Untitled photo" }}</strong>
                   <p>{{ link.photo?.slug || "No slug" }}</p>
+                  <p class="contact-muted">
+                    {{
+                      link.consentPublish === true
+                        ? "Public sharing approved"
+                        : link.consentPublish === false
+                          ? "Public sharing declined"
+                          : "Per-photo consent not set yet"
+                    }}
+                  </p>
                   <p v-if="link.photo?.takenAt" class="contact-muted">
                     {{ formatDisplayDate(link.photo?.takenAt || null) }}
                   </p>

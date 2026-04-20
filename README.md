@@ -179,7 +179,7 @@ Suggested workflow:
 7. In Directus or the studio dashboard, assign matched images through the `photos` field on the session.
 8. Mark the session delivered when the gallery is ready, then share `/g/{token}` manually.
 
-The studio also tracks a code lifecycle through `distribution_state` (`available`, `printed`, `sent`), so you can avoid reusing a code that has already been printed or sent directly, requeue eligible codes for reprint, and delete only still-available unused codes.
+The studio also tracks a code lifecycle through `distribution_state` (`available`, `printed`, `sent`), so you can avoid reusing a code that has already been printed or sent directly, requeue eligible codes for reprint, and delete only still-available unused codes. Per-photo public sharing consent is stored on `street_delivery_session_photos.consent_publish`, with the first form acting as the default and the gallery allowing subjects to review each photo individually.
 
 For messaging, the studio can also copy per-session outreach and delivery text with the correct link already inserted. Edit these in Directus under `site_settings`:
 

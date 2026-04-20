@@ -24,6 +24,7 @@ import type {
   CmsStreetDeliveryAdminSessionSummary,
   CmsStreetDeliveryContactMethod,
   CmsStreetDeliveryGallery,
+  CmsStreetDeliveryGalleryPhoto,
   CmsStreetDeliverySessionPublic,
   CmsStreetDeliverySubmissionResult,
   DirectusAsset,
@@ -120,12 +121,14 @@ const STREET_SESSION_PHOTO_FIELDS = [
   "street_delivery_sessions_id",
   "photos_id",
   "sort",
+  "consent_publish",
 ] as const;
 
 const STREET_GALLERY_LINK_FIELDS = [
   "id",
   "street_delivery_sessions_id",
   "sort",
+  "consent_publish",
   {
     photos_id: [
       "id",
@@ -191,6 +194,11 @@ export type StreetDeliveryAdminUploadInput = {
     type?: string;
     data: Uint8Array;
   }>;
+};
+
+export type StreetDeliveryGalleryConsentUpdateInput = {
+  linkId: number;
+  consentPublish: boolean;
 };
 
 function requireStreetDeliveryClient(event?: H3Event): StreetDeliveryClient {
@@ -684,6 +692,7 @@ function normalizeAdminPhotoLink(
   return {
     id: link.id,
     sort: link.sort ?? null,
+    consentPublish: typeof link.consent_publish === "boolean" ? link.consent_publish : null,
     photo:
       link.photos_id && typeof link.photos_id === "object"
         ? normalizePhotoSummary(event, link.photos_id as DirectusPhoto)
@@ -1124,6 +1133,32 @@ export async function submitStreetDeliveryInquiry(
     })
   );
 
+  const sessionPhotoLinks = (await client.request(
+    readItems("street_delivery_session_photos", {
+      fields: ["id", "consent_publish"] as never,
+      filter: {
+        street_delivery_sessions_id: { _eq: session.id },
+      },
+      limit: -1,
+    })
+  )) as Array<{ id: number; consent_publish?: boolean | null }>;
+
+  const linksNeedingDefaultConsent = sessionPhotoLinks.filter(
+    (link) => typeof link.consent_publish !== "boolean"
+  );
+
+  if (linksNeedingDefaultConsent.length) {
+    await Promise.all(
+      linksNeedingDefaultConsent.map((link) =>
+        client.request(
+          updateItem("street_delivery_session_photos", link.id, {
+            consent_publish: Boolean(input.consentPublish),
+          })
+        )
+      )
+    );
+  }
+
   const normalizedSession = normalizeStreetDeliverySession(session);
 
   return {
@@ -1161,13 +1196,14 @@ export async function readStreetDeliveryGalleryByToken(
 
   const [contact] = (await client.request(
     readItems("street_delivery_contacts", {
-      fields: ["id"] as never,
+      fields: ["id", "consent_publish"] as never,
       filter: {
         street_delivery_sessions_id: { _eq: session.id },
       },
+      sort: ["-date_created", "-id"] as never,
       limit: 1,
     })
-  )) as Array<{ id: number }>;
+  )) as Array<{ id: number; consent_publish?: boolean | null }>;
 
   if (!contact) {
     return null;
@@ -1184,14 +1220,82 @@ export async function readStreetDeliveryGalleryByToken(
     })
   )) as DirectusStreetDeliverySessionPhoto[];
 
-  const photos: CmsPhotoSummary[] = links
+  const defaultConsentPublish = Boolean(contact.consent_publish);
+  const photos: CmsStreetDeliveryGalleryPhoto[] = links
     .filter((link) => link.photos_id && typeof link.photos_id === "object")
-    .map((link) => normalizePhotoSummary(event, link.photos_id as DirectusPhoto));
+    .map((link) => ({
+      linkId: link.id,
+      consentPublish:
+        typeof link.consent_publish === "boolean" ? link.consent_publish : defaultConsentPublish,
+      photo: normalizePhotoSummary(event, link.photos_id as DirectusPhoto),
+    }));
 
   return {
     session: normalizeStreetDeliverySession(session),
+    defaultConsentPublish,
     photos,
   };
+}
+
+export async function updateStreetDeliveryGalleryPhotoConsent(
+  event: H3Event | undefined,
+  token: string,
+  input: StreetDeliveryGalleryConsentUpdateInput
+): Promise<CmsStreetDeliveryGallery> {
+  const client = requireStreetDeliveryClient(event);
+  const galleryToken = String(token || "").trim();
+  const linkId = Number(input.linkId);
+
+  if (!/^[A-Za-z0-9_-]{12,128}$/.test(galleryToken) || !Number.isInteger(linkId) || linkId <= 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid gallery consent update.",
+    });
+  }
+
+  const gallery = await readStreetDeliveryGalleryByToken(event, galleryToken);
+
+  if (!gallery?.session.id) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: "Gallery not found.",
+    });
+  }
+
+  const [link] = (await client.request(
+    readItems("street_delivery_session_photos", {
+      fields: ["id", "street_delivery_sessions_id"] as never,
+      filter: {
+        id: { _eq: linkId },
+        street_delivery_sessions_id: { _eq: gallery.session.id },
+      },
+      limit: 1,
+    })
+  )) as Array<{ id: number; street_delivery_sessions_id: number }>;
+
+  if (!link) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: "Photo not found in this gallery.",
+    });
+  }
+
+  await client.request(
+    updateItem("street_delivery_session_photos", linkId, {
+      consent_publish: Boolean(input.consentPublish),
+    })
+  );
+
+  const nextGallery = await readStreetDeliveryGalleryByToken(event, galleryToken);
+
+  if (!nextGallery) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: "Gallery not found.",
+    });
+  }
+
+  return nextGallery;
 }
 
 export async function readStreetDeliveryAdminSessions(

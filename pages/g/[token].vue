@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { computed } from "vue";
+  import { computed, reactive, ref } from "vue";
 
   import { DEFAULT_CMS_SITE_SETTINGS } from "~/types/directus";
   import type { CmsStreetDeliveryGallery } from "~/types/directus";
@@ -14,26 +14,37 @@
   const site = computed(() => shell.value?.site || DEFAULT_CMS_SITE_SETTINGS);
   const token = computed(() => String(route.params.token || "").trim());
 
-  const { data: gallery, pending } = await useAsyncData(
+  const { data: galleryResponse, pending } = await useAsyncData(
     `street-delivery-gallery-${token.value}`,
     async () => {
       try {
-        return await $fetch<CmsStreetDeliveryGallery>(
+        const gallery = await $fetch<CmsStreetDeliveryGallery>(
           `/api/cms/street-delivery/galleries/${encodeURIComponent(token.value)}`
         );
+
+        return { gallery };
       } catch (error: unknown) {
         const statusCode = typeof error === "object" && error && "statusCode" in error
           ? Number((error as { statusCode?: number }).statusCode)
           : 500;
 
         if (statusCode === 404) {
-          return null;
+          return { gallery: null };
         }
 
         throw error;
       }
+    },
+    {
+      default: () => ({
+        gallery: null as CmsStreetDeliveryGallery | null,
+      }),
     }
   );
+  const consentBusy = reactive<Record<number, boolean>>({});
+  const consentError = ref("");
+  const consentMessage = ref("");
+  const gallery = computed(() => galleryResponse.value.gallery);
 
   const formattedDate = computed(() => {
     if (!gallery.value?.session.photographedAt) {
@@ -54,6 +65,39 @@
     return `/api/cms/street-delivery/galleries/${encodeURIComponent(token.value)}/download/${encodeURIComponent(assetId)}`;
   }
 
+  async function updatePhotoConsent(linkId: number, consentPublish: boolean) {
+    if (!gallery.value) {
+      return;
+    }
+
+    consentBusy[linkId] = true;
+    consentError.value = "";
+    consentMessage.value = "";
+
+    try {
+      const nextGallery = await $fetch<CmsStreetDeliveryGallery>(
+        `/api/cms/street-delivery/galleries/${encodeURIComponent(token.value)}/consent`,
+        {
+          method: "PATCH",
+          body: {
+            linkId,
+            consentPublish,
+          },
+        }
+      );
+
+      galleryResponse.value = { gallery: nextGallery };
+      consentMessage.value = "Sharing preference updated.";
+    } catch (error: unknown) {
+      consentError.value =
+        typeof error === "object" && error && "statusMessage" in error
+          ? String((error as { statusMessage?: string }).statusMessage || "Could not update sharing preference.")
+          : "Could not update sharing preference.";
+    } finally {
+      consentBusy[linkId] = false;
+    }
+  }
+
   useSeoMeta({
     title: () => `Your photos | ${site.value.siteName}`,
     description: () => "Street photo delivery gallery.",
@@ -69,6 +113,9 @@
         <p class="gallery-lede">
           Download the images below. If you need anything removed, message
           <a href="https://instagram.com/verycrunchy" target="_blank" rel="noopener">@verycrunchy</a>.
+        </p>
+        <p class="gallery-note">
+          You can choose public sharing permission separately for each photo below.
         </p>
         <div class="gallery-meta">
           <span class="gallery-chip">Code: {{ gallery?.session.code }}</span>
@@ -91,33 +138,49 @@
         <p>The gallery link exists, but no photos have been attached to it yet.</p>
       </div>
 
-      <div v-else class="gallery-grid">
-        <article
-          v-for="photo in gallery.photos"
-          :key="photo.id"
-          class="gallery-item"
-        >
-          <img
-            v-if="photo.image"
-            :src="photo.image.fallbackUrl || photo.image.url || photo.image.previewUrl || undefined"
-            :alt="photo.image.alt || photo.title"
-            loading="lazy"
+      <template v-else>
+        <p v-if="consentError" class="gallery-message is-error">{{ consentError }}</p>
+        <p v-else-if="consentMessage" class="gallery-message">{{ consentMessage }}</p>
+
+        <div class="gallery-grid">
+          <article
+            v-for="entry in gallery.photos"
+            :key="entry.linkId"
+            class="gallery-item"
           >
-          <div class="gallery-item-copy">
-            <div>
-              <h2>{{ photo.title }}</h2>
-              <p v-if="photo.description">{{ photo.description }}</p>
-            </div>
-            <a
-              class="gallery-download"
-              :href="downloadUrl(photo.image?.id)"
-              :download="photo.image?.downloadFilename || photo.title || undefined"
+            <img
+              v-if="entry.photo.image"
+              :src="entry.photo.image.fallbackUrl || entry.photo.image.url || entry.photo.image.previewUrl || undefined"
+              :alt="entry.photo.image.alt || entry.photo.title"
+              loading="lazy"
             >
-              Download
-            </a>
-          </div>
-        </article>
-      </div>
+            <div class="gallery-item-copy">
+              <div>
+                <h2>{{ entry.photo.title }}</h2>
+                <p v-if="entry.photo.description">{{ entry.photo.description }}</p>
+                <label class="gallery-consent">
+                  <input
+                    :checked="entry.consentPublish"
+                    :disabled="consentBusy[entry.linkId]"
+                    type="checkbox"
+                    @change="updatePhotoConsent(entry.linkId, ($event.target as HTMLInputElement).checked)"
+                  >
+                  <span>You may publish this photo publicly</span>
+                </label>
+              </div>
+              <div class="gallery-item-actions">
+                <a
+                  class="gallery-download"
+                  :href="downloadUrl(entry.photo.image?.id)"
+                  :download="entry.photo.image?.downloadFilename || entry.photo.title || undefined"
+                >
+                  Download
+                </a>
+              </div>
+            </div>
+          </article>
+        </div>
+      </template>
     </section>
   </main>
 </template>
@@ -162,6 +225,12 @@
     line-height: 1.6;
   }
 
+  .gallery-note {
+    margin: 0.85rem 0 0;
+    color: #a1a1aa;
+    line-height: 1.55;
+  }
+
   .gallery-meta {
     display: flex;
     flex-wrap: wrap;
@@ -204,6 +273,15 @@
     gap: 1.1rem;
   }
 
+  .gallery-message {
+    margin: 0;
+    color: #c4c4cb;
+  }
+
+  .gallery-message.is-error {
+    color: #fca5a5;
+  }
+
   @media (min-width: 760px) {
     .gallery-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -230,6 +308,26 @@
     justify-content: space-between;
     gap: 1rem;
     padding: 1rem;
+  }
+
+  .gallery-item-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.75rem;
+  }
+
+  .gallery-consent {
+    display: flex;
+    gap: 0.7rem;
+    align-items: start;
+    margin-top: 0.9rem;
+    color: #d4d4d8;
+    line-height: 1.45;
+  }
+
+  .gallery-consent input {
+    margin-top: 0.15rem;
   }
 
   .gallery-download {

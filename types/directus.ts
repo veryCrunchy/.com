@@ -243,6 +243,7 @@ export interface DirectusStreetDeliverySessionPhoto {
   street_delivery_sessions_id: number | DirectusStreetDeliverySession;
   photos_id: string | number | DirectusPhoto;
   sort?: number | null;
+  consent_publish?: boolean | null;
 }
 
 export interface DirectusChapterItem {
@@ -503,7 +504,14 @@ export interface CmsStreetDeliverySessionPublic {
 
 export interface CmsStreetDeliveryGallery {
   session: CmsStreetDeliverySessionPublic;
-  photos: CmsPhotoSummary[];
+  defaultConsentPublish: boolean;
+  photos: CmsStreetDeliveryGalleryPhoto[];
+}
+
+export interface CmsStreetDeliveryGalleryPhoto {
+  linkId: number;
+  consentPublish: boolean;
+  photo: CmsPhotoSummary;
 }
 
 export interface CmsStreetDeliverySubmissionResult {
@@ -547,6 +555,7 @@ export interface CmsStreetDeliveryAdminSessionSummary {
 export interface CmsStreetDeliveryAdminPhotoLink {
   id: number;
   sort: number | null;
+  consentPublish: boolean | null;
   photo: CmsPhotoSummary | null;
 }
 

@@ -452,6 +452,16 @@ if (await collectionExists("street_delivery_session_photos")) {
         meta: { hidden: true },
         schema: {},
       },
+      {
+        field: "consent_publish",
+        type: "boolean",
+        meta: {
+          interface: "boolean",
+          width: "half",
+          note: "Per-photo public sharing permission for this session.",
+        },
+        schema: { is_nullable: true },
+      },
     ],
   });
 
@@ -461,6 +471,24 @@ if (await collectionExists("street_delivery_session_photos")) {
     console.error("  ❌  street_delivery_session_photos:", JSON.stringify(result.data));
     process.exit(1);
   }
+}
+
+if (await fieldExists("street_delivery_session_photos", "consent_publish")) {
+  console.log("  –  street_delivery_session_photos.consent_publish field already exists");
+} else {
+  const result = await api("POST", "/fields/street_delivery_session_photos", {
+    field: "consent_publish",
+    type: "boolean",
+    meta: {
+      interface: "boolean",
+      width: "half",
+      note: "Per-photo public sharing permission for this session.",
+    },
+    schema: { is_nullable: true },
+  });
+
+  if (result.ok) console.log("  ✔  field: street_delivery_session_photos.consent_publish");
+  else console.warn("  ⚠   street_delivery_session_photos.consent_publish:", JSON.stringify(result.data));
 }
 
 const contactsRelation = await getRelation("street_delivery_contacts", "street_delivery_sessions_id");

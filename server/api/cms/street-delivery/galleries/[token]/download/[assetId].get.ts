@@ -38,16 +38,16 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const photo = gallery.photos.find((entry) => entry.image?.id === assetId);
+  const entry = gallery.photos.find((item) => item.photo.image?.id === assetId);
 
-  if (!photo?.image?.id) {
+  if (!entry?.photo.image?.id) {
     throw createError({
       statusCode: 404,
       statusMessage: "Photo asset not found in this gallery.",
     });
   }
 
-  const upstream = await fetch(`${directusUrl}/assets/${encodeURIComponent(photo.image.id)}`, {
+  const upstream = await fetch(`${directusUrl}/assets/${encodeURIComponent(entry.photo.image.id)}`, {
     headers: config.directusToken
       ? {
           Authorization: `Bearer ${config.directusToken}`,
@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
   const headers = new Headers();
   const contentType = upstream.headers.get("content-type");
   const contentLength = upstream.headers.get("content-length");
-  const filename = sanitizeFilename(photo.image.downloadFilename || `${photo.slug || photo.id}.jpg`);
+  const filename = sanitizeFilename(entry.photo.image.downloadFilename || `${entry.photo.slug || entry.photo.id}.jpg`);
 
   if (contentType) {
     headers.set("content-type", contentType);
