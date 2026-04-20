@@ -46,6 +46,14 @@
     }).format(new Date(gallery.value.session.photographedAt));
   });
 
+  function downloadUrl(assetId: string | null | undefined) {
+    if (!assetId) {
+      return "#";
+    }
+
+    return `/api/cms/street-delivery/galleries/${encodeURIComponent(token.value)}/download/${encodeURIComponent(assetId)}`;
+  }
+
   useSeoMeta({
     title: () => `Your photos | ${site.value.siteName}`,
     description: () => "Street photo delivery gallery.",
@@ -102,7 +110,7 @@
             </div>
             <a
               class="gallery-download"
-              :href="photo.image?.fallbackUrl || '#'"
+              :href="downloadUrl(photo.image?.id)"
               :download="photo.image?.downloadFilename || photo.title || undefined"
             >
               Download
