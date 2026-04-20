@@ -46,9 +46,7 @@ const doubledMarquee = computed(() =>
     <div v-if="chapterNum || watermark" class="pa-top">
       <div class="pa-top-left">
         <span v-if="chapterNum" class="pa-ch-num">{{ chapterNum }}</span>
-        <span v-if="chapterLabel" class="pa-role-pill">
-          <span class="pa-role-dot"></span>{{ chapterLabel }}
-        </span>
+        <span v-if="chapterLabel" class="pa-role-pill">{{ chapterLabel }}</span>
       </div>
       <div v-if="watermark" class="pa-watermark" aria-hidden="true">{{ watermark }}</div>
     </div>
@@ -113,78 +111,15 @@ const doubledMarquee = computed(() =>
   height: 100%;
 }
 
-/* Ghost sheet layers (behind the card) */
-.pa-wrap::before,
-.pa-wrap::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 1.5rem;
-  pointer-events: none;
-  z-index: -1;
-  border: 1px solid rgba(113, 113, 122, 0.18);
-}
-
-.pa-wrap::before {
-  inset: 0 -12px -8px 12px;
-  background:
-    linear-gradient(90deg, rgba(248, 250, 252, 0.02), rgba(14, 16, 22, 0.78)),
-    rgba(14, 16, 22, 0.72);
-  opacity: 0.58;
-  transform: scaleY(0.988);
-}
-
-.pa-wrap::after {
-  inset: 0 -24px -16px 24px;
-  background:
-    linear-gradient(90deg, rgba(248, 250, 252, 0.01), rgba(12, 14, 20, 0.62)),
-    rgba(12, 14, 20, 0.5);
-  opacity: 0.34;
-  transform: scaleY(0.976);
-}
-
 .pa-root {
-  border-radius: 1.5rem;
-  border: 1px solid;
-  padding: 1.75rem 2rem 2.25rem;
-  height: 100%;
+  padding: 1.75rem 0 2.25rem;
   position: relative;
-  overflow-x: hidden;
-  overflow-y: hidden;
-  backdrop-filter: blur(4px);
-  transform-origin: left center;
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-  box-shadow: 0 28px 70px -34px rgba(0, 0, 0, 0.62);
-}
-
-.pa-root::before,
-.pa-root::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.pa-root::before {
-  inset: 0 auto 0 0;
-  width: 1.35rem;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent);
-  opacity: 0.35;
-}
-
-.pa-root::after {
-  inset: 0 0 0 auto;
-  width: 1.8rem;
-  background: linear-gradient(270deg, rgba(255, 255, 255, 0.06), transparent);
-  opacity: 0.18;
 }
 
 /* ── Themes ────────────────────────────────── */
 /* Blue */
 .pa-theme--blue {
-  border-color: rgba(59, 130, 246, 0.14);
-  background: rgba(8, 12, 24, 0.65);
+  background: none;
 }
 .pa-theme--blue .pa-ch-num    { color: rgba(59, 130, 246, 0.6); }
 .pa-theme--blue .pa-role-pill { color: rgba(96, 165, 250, 0.75); border-color: rgba(59, 130, 246, 0.25); }
@@ -210,8 +145,7 @@ const doubledMarquee = computed(() =>
 
 /* Green */
 .pa-theme--green {
-  border-color: rgba(74, 222, 128, 0.1);
-  background: rgba(8, 18, 12, 0.6);
+  background: none;
 }
 .pa-theme--green .pa-ch-num    { color: rgba(74, 222, 128, 0.55); }
 .pa-theme--green .pa-role-pill { color: rgba(74, 222, 128, 0.7); border-color: rgba(74, 222, 128, 0.22); }
@@ -237,8 +171,7 @@ const doubledMarquee = computed(() =>
 
 /* Purple */
 .pa-theme--purple {
-  border-color: rgba(168, 85, 247, 0.12);
-  background: rgba(12, 8, 20, 0.65);
+  background: none;
 }
 .pa-theme--purple .pa-ch-num    { color: rgba(168, 85, 247, 0.6); }
 .pa-theme--purple .pa-role-pill { color: rgba(192, 132, 252, 0.7); border-color: rgba(168, 85, 247, 0.25); }
@@ -264,8 +197,7 @@ const doubledMarquee = computed(() =>
 
 /* Orange */
 .pa-theme--orange {
-  border-color: rgba(249, 115, 22, 0.12);
-  background: rgba(18, 10, 5, 0.65);
+  background: none;
 }
 .pa-theme--orange .pa-ch-num    { color: rgba(249, 115, 22, 0.6); }
 .pa-theme--orange .pa-role-pill { color: rgba(251, 146, 60, 0.7); border-color: rgba(249, 115, 22, 0.25); }
@@ -291,8 +223,7 @@ const doubledMarquee = computed(() =>
 
 /* Pink */
 .pa-theme--pink {
-  border-color: rgba(236, 72, 153, 0.12);
-  background: rgba(20, 8, 16, 0.65);
+  background: none;
 }
 .pa-theme--pink .pa-ch-num    { color: rgba(236, 72, 153, 0.6); }
 .pa-theme--pink .pa-role-pill { color: rgba(244, 114, 182, 0.7); border-color: rgba(236, 72, 153, 0.25); }
@@ -318,8 +249,7 @@ const doubledMarquee = computed(() =>
 
 /* White (neutral) */
 .pa-theme--white {
-  border-color: rgba(228, 228, 231, 0.1);
-  background: rgba(18, 18, 22, 0.7);
+  background: none;
 }
 .pa-theme--white .pa-ch-num    { color: rgba(228, 228, 231, 0.4); }
 .pa-theme--white .pa-role-pill { color: rgba(228, 228, 231, 0.55); border-color: rgba(228, 228, 231, 0.18); }
@@ -363,7 +293,7 @@ const doubledMarquee = computed(() =>
   position: absolute;
   top: -0.75rem;
   right: -0.5rem;
-  font-family: "Syne", sans-serif;
+  font-family: "Bricolage Grotesque", sans-serif;
   font-size: clamp(4rem, 14vw, 11rem);
   font-weight: 800;
   letter-spacing: -0.05em;
@@ -374,7 +304,7 @@ const doubledMarquee = computed(() =>
 }
 
 .pa-ch-num {
-  font-family: "Syne", sans-serif;
+  font-family: "Bricolage Grotesque", sans-serif;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.3em;
@@ -392,23 +322,15 @@ const doubledMarquee = computed(() =>
   border: 1px solid;
 }
 
-.pa-role-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  animation: pulse-dot 2.4s ease-in-out infinite;
-  flex-shrink: 0;
-}
-
 /* ── Intro ─────────────────────────────────── */
 .pa-intro {
   position: relative;
   z-index: 1;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.75rem;
 }
 
 .pa-title {
-  font-family: "Syne", sans-serif;
+  font-family: "Bricolage Grotesque", sans-serif;
   font-size: clamp(2.2rem, 6vw, 4rem);
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -439,7 +361,7 @@ const doubledMarquee = computed(() =>
   border-top: 1px solid;
   border-bottom: 1px solid;
   padding: 0.55rem 0;
-  margin: 0 -2rem 1.5rem;
+  margin: 0 0 1.5rem;
   position: relative;
   z-index: 1;
 }
@@ -449,7 +371,7 @@ const doubledMarquee = computed(() =>
   gap: 2rem;
   width: max-content;
   animation: marquee 32s linear infinite;
-  font-family: "Syne", sans-serif;
+  font-family: "Bricolage Grotesque", sans-serif;
   font-weight: 600;
   font-size: 0.68rem;
   letter-spacing: 0.25em;
@@ -464,22 +386,11 @@ const doubledMarquee = computed(() =>
 /* ── Card grid (slot) ──────────────────────── */
 .pa-grid {
   display: grid;
-  gap: 1rem;
+  gap: 0;
   grid-template-columns: 1fr;
   position: relative;
   z-index: 1;
 }
-
-@media (min-width: 640px) {
-  .pa-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (min-width: 1024px) {
-  .pa-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-/* Wide card spans 2 cols */
-.pa-grid :deep(.ac-wide) { grid-column: span 2; }
 
 /* Full-width slot items: sub-rules, leads, full-col wrappers, para-cards */
 .pa-grid :deep(.ch-sub-rule),
@@ -537,18 +448,4 @@ const doubledMarquee = computed(() =>
   100% { background-position: 0% 50%; }
 }
 
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(0.82); }
-}
-
-@media (max-width: 640px) {
-  .pa-wrap::before {
-    inset: 0 -8px -6px 8px;
-  }
-
-  .pa-wrap::after {
-    inset: 0 -16px -12px 16px;
-  }
-}
 </style>

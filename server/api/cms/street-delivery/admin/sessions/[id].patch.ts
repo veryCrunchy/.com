@@ -7,6 +7,7 @@ export default defineEventHandler(async (event) => {
     photographedAt?: string | null;
     location?: string | null;
     publicEnabled?: boolean;
+    distributionState?: "available" | "printed" | "sent" | null;
     printedAt?: string | null;
     regenerateGalleryToken?: boolean;
   }>(event);

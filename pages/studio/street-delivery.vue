@@ -3,13 +3,18 @@
   import { computed, onMounted, reactive, ref, watch } from "vue";
 
   import { DEFAULT_CMS_SITE_SETTINGS } from "~/types/directus";
-  import type { CmsSiteSettings, CmsStreetDeliveryAdminSessionSummary } from "~/types/directus";
+  import type {
+    CmsSiteSettings,
+    CmsStreetDeliveryAdminSessionSummary,
+    CmsStreetDeliveryDistributionState,
+  } from "~/types/directus";
 
   type SessionDraft = {
     status: string;
     location: string;
     photographedAtLocal: string;
     publicEnabled: boolean;
+    distributionState: CmsStreetDeliveryDistributionState;
   };
 
   type PrintPage = {
@@ -47,7 +52,7 @@
   const batchBusy = ref(false);
   const batchError = ref("");
   const batchMessage = ref("");
-  const printStatusFilter = ref<"all" | "printed" | "unprinted">("all");
+  const distributionStateFilter = ref<"all" | CmsStreetDeliveryDistributionState>("all");
   const printMirrorBacks = ref(true);
   const printIncludeBacks = ref(true);
   const qrByCode = reactive<Record<string, string>>({});
@@ -96,6 +101,7 @@
       location: session.location || "",
       photographedAtLocal: toLocalInputValue(session.photographedAt),
       publicEnabled: session.publicEnabled,
+      distributionState: session.distributionState,
     };
   }
 
@@ -128,6 +134,18 @@
       dateStyle: "medium",
       timeStyle: "short",
     }).format(date);
+  }
+
+  function distributionStateLabel(state: CmsStreetDeliveryDistributionState) {
+    if (state === "printed") {
+      return "Printed";
+    }
+
+    if (state === "sent") {
+      return "Sent";
+    }
+
+    return "Available";
   }
 
   function fillMessageTemplate(
@@ -294,6 +312,7 @@
               ? new Date(draft.photographedAtLocal).toISOString()
               : null,
             publicEnabled: draft.publicEnabled,
+            distributionState: draft.distributionState,
             regenerateGalleryToken,
           },
         }
@@ -309,7 +328,7 @@
     }
   }
 
-  async function setPrintedState(sessionId: number, printed: boolean) {
+  async function setDistributionState(sessionId: number, distributionState: CmsStreetDeliveryDistributionState) {
     saveBusy[sessionId] = true;
     saveError[sessionId] = "";
 
@@ -319,7 +338,7 @@
         {
           method: "PATCH",
           body: {
-            printedAt: printed ? new Date().toISOString() : null,
+            distributionState,
           },
         }
       );
@@ -328,8 +347,8 @@
     } catch (error: unknown) {
       saveError[sessionId] =
         typeof error === "object" && error && "statusMessage" in error
-          ? String((error as { statusMessage?: string }).statusMessage || "Could not update print status.")
-          : "Could not update print status.";
+          ? String((error as { statusMessage?: string }).statusMessage || "Could not update code state.")
+          : "Could not update code state.";
     } finally {
       saveBusy[sessionId] = false;
     }
@@ -431,20 +450,17 @@
 
   const printablePages = computed(() => buildPrintPages(latestBatch.value));
   const filteredSessions = computed(() => {
-    if (printStatusFilter.value === "printed") {
-      return sessions.value.filter((session) => session.printed);
+    if (distributionStateFilter.value === "all") {
+      return sessions.value;
     }
 
-    if (printStatusFilter.value === "unprinted") {
-      return sessions.value.filter((session) => !session.printed);
-    }
-
-    return sessions.value;
+    return sessions.value.filter((session) => session.distributionState === distributionStateFilter.value);
   });
-  const unprintedCount = computed(() => sessions.value.filter((session) => !session.printed).length);
-  const printedCount = computed(() => sessions.value.filter((session) => session.printed).length);
+  const availableCount = computed(() => sessions.value.filter((session) => session.distributionState === "available").length);
+  const printedCount = computed(() => sessions.value.filter((session) => session.distributionState === "printed").length);
+  const sentCount = computed(() => sessions.value.filter((session) => session.distributionState === "sent").length);
   const latestBatchAllPrinted = computed(
-    () => latestBatch.value.length > 0 && latestBatch.value.every((session) => session.printed)
+    () => latestBatch.value.length > 0 && latestBatch.value.every((session) => session.distributionState === "printed")
   );
 
   const printInstruction = computed(() =>
@@ -458,17 +474,17 @@
       return;
     }
 
-    const unprintedBatch = latestBatch.value.filter((session) => !session.printed);
+    const unprintedBatch = latestBatch.value.filter((session) => session.distributionState === "available");
 
     if (unprintedBatch.length) {
-      await Promise.all(unprintedBatch.map((session) => setPrintedState(session.id, true)));
+      await Promise.all(unprintedBatch.map((session) => setDistributionState(session.id, "printed")));
     }
 
     window.print();
   }
 
   watch(
-    () => latestBatch.value.map((session) => `${session.id}:${cardUrl(session)}:${session.printedAt || ""}`).join("|"),
+    () => latestBatch.value.map((session) => `${session.id}:${cardUrl(session)}:${session.distributionState}`).join("|"),
     () => {
       void refreshQrCodes();
     }
@@ -586,7 +602,7 @@
               <h2>Front / Back A4 sheets</h2>
             </div>
             <p class="studio-hint">
-              {{ latestBatch.length }} cards ready · {{ latestBatchAllPrinted ? "reprint batch" : "unprinted batch" }}
+              {{ latestBatch.length }} cards ready · {{ latestBatchAllPrinted ? "reprint batch" : "available batch" }}
             </p>
           </div>
 
@@ -702,16 +718,17 @@
               <p class="studio-eyebrow">Manage</p>
               <h2>Sessions</h2>
             </div>
-            <p class="studio-hint">{{ sessions.length }} total · {{ unprintedCount }} unprinted · {{ printedCount }} printed</p>
+            <p class="studio-hint">{{ sessions.length }} total · {{ availableCount }} available · {{ printedCount }} printed · {{ sentCount }} sent</p>
           </div>
 
           <div class="session-toolbar">
             <label class="studio-field session-filter">
-              <span>Print state</span>
-              <select v-model="printStatusFilter">
+              <span>Code state</span>
+              <select v-model="distributionStateFilter">
                 <option value="all">All sessions</option>
-                <option value="unprinted">Unprinted only</option>
+                <option value="available">Available only</option>
                 <option value="printed">Printed only</option>
+                <option value="sent">Sent only</option>
               </select>
             </label>
           </div>
@@ -728,8 +745,15 @@
                 <div class="session-id">
                   <p class="session-code">{{ session.code }}</p>
                   <p class="session-meta">
-                    <span :class="{ 'is-printed': session.printed, 'is-unprinted': !session.printed }" class="session-print-badge">
-                      {{ session.printed ? `Printed ${formatDisplayDate(session.printedAt) || ""}`.trim() : "Not printed" }}
+                    <span
+                      :class="{
+                        'is-printed': session.distributionState === 'printed',
+                        'is-available': session.distributionState === 'available',
+                        'is-sent': session.distributionState === 'sent',
+                      }"
+                      class="session-print-badge"
+                    >
+                      {{ distributionStateLabel(session.distributionState) }}
                     </span>
                     <span>{{ session.contactCount }} {{ session.contactCount === 1 ? 'contact' : 'contacts' }}</span>
                     <span>{{ session.photoCount }} {{ session.photoCount === 1 ? 'photo' : 'photos' }}</span>
@@ -765,6 +789,14 @@
                 <label class="studio-field">
                   <span>Photographed at</span>
                   <input v-model="drafts[session.id].photographedAtLocal" type="datetime-local">
+                </label>
+                <label class="studio-field">
+                  <span>Code state</span>
+                  <select v-model="drafts[session.id].distributionState">
+                    <option value="available">Available</option>
+                    <option value="printed">Printed</option>
+                    <option value="sent">Sent</option>
+                  </select>
                 </label>
                 <label class="studio-toggle">
                   <input v-model="drafts[session.id].publicEnabled" type="checkbox">
@@ -809,12 +841,13 @@
                     class="studio-secondary"
                     :disabled="saveBusy[session.id]"
                     type="button"
-                    @click="setPrintedState(session.id, !session.printed)"
+                    @click="setDistributionState(session.id, session.distributionState === 'sent' ? 'available' : 'sent')"
                   >
-                    {{ session.printed ? "Unmark printed" : "Mark printed" }}
+                    {{ session.distributionState === "sent" ? "Mark available" : "Mark sent" }}
                   </button>
                   <button
                     class="studio-secondary"
+                    :disabled="session.distributionState === 'sent'"
                     type="button"
                     @click="prepareReprint(session)"
                   >
@@ -829,7 +862,7 @@
                   </button>
                   <button
                     class="studio-secondary is-danger"
-                    :disabled="deleteBusy[session.id] || session.printed || session.contactCount > 0 || session.photoCount > 0"
+                    :disabled="deleteBusy[session.id] || session.distributionState !== 'available' || session.contactCount > 0 || session.photoCount > 0"
                     type="button"
                     @click="deleteSession(session.id)"
                   >
@@ -1275,8 +1308,12 @@
     color: #a7f3d0;
   }
 
-  .session-print-badge.is-unprinted {
+  .session-print-badge.is-available {
     color: #fcd34d;
+  }
+
+  .session-print-badge.is-sent {
+    color: #93c5fd;
   }
 
   .session-actions {

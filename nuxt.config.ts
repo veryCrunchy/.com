@@ -16,6 +16,7 @@ export default defineNuxtConfig({
       "Libre Barcode 128 Text": true,
       Poppins: true,
       Syne: [400, 500, 600, 700, 800],
+      "Bricolage Grotesque": [400, 500, 600, 700, 800],
       "Instrument Serif": ["400"],
     },
     preload: true,

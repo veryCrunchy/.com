@@ -34,41 +34,37 @@ const props = withDefaults(defineProps<{
 
 <template>
   <article
-    class="ac-root hover"
+    class="ac-root"
     :class="[
       `ac-theme--${theme}`,
       wide && 'ac-wide',
     ]"
     hs-dist="90"
   >
-    <!-- Accent bar (optional) -->
-    <div v-if="accentColor !== 'none'" class="ac-accent" :class="`ac-accent--${accentColor}`"></div>
-
-    <div class="ac-body">
-      <!-- Header row -->
-      <div class="ac-head">
-        <div>
-          <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
-          <h3 class="ac-title">{{ title }}</h3>
-        </div>
-        <a
-          v-if="link"
-          :href="link.href"
-          :target="link.target ?? '_self'"
-          :rel="link.target === '_blank' ? 'noopener' : undefined"
-          class="ac-btn"
-          :class="link.variant === 'green' ? 'ac-btn--green' : 'ac-btn--default'"
-        >{{ link.label }}</a>
-        <span v-else-if="status" class="ac-status-pill">{{ status }}</span>
+    <!-- Left: meta — category, link/status, footer -->
+    <div class="ac-meta">
+      <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
+      <a
+        v-if="link"
+        :href="link.href"
+        :target="link.target ?? '_self'"
+        :rel="link.target === '_blank' ? 'noopener' : undefined"
+        class="ac-btn"
+        :class="link.variant === 'green' ? 'ac-btn--green' : 'ac-btn--default'"
+      >{{ link.label }}</a>
+      <span v-else-if="status" class="ac-status-pill">{{ status }}</span>
+      <div v-if="footer" class="ac-foot-meta">
+        <span class="ac-foot-label">{{ footer.label }}</span>
       </div>
+    </div>
 
-      <!-- Description (slot or prop) -->
-      <p v-if="description" class="ac-desc" v-html="description"></p>
+    <!-- Right: content — title, description, tags -->
+    <div class="ac-content">
+      <h3 class="ac-title">{{ title }}</h3>
+      <div v-if="description" class="ac-desc" v-html="description"></div>
       <div v-else-if="$slots.default" class="ac-desc">
         <slot />
       </div>
-
-      <!-- Tags -->
       <div v-if="tags?.length" class="ac-tags">
         <span
           v-for="t in tags"
@@ -77,14 +73,6 @@ const props = withDefaults(defineProps<{
           :class="t.variant ? `ac-tag--${t.variant}` : ''"
         >{{ t.label }}</span>
       </div>
-
-      <!-- Footer -->
-      <div v-if="footer" class="ac-foot">
-        <span class="ac-foot-label">{{ footer.label }}</span>
-        <span v-if="footer.live" class="ac-live">
-          <span class="ac-live-dot"></span>Live
-        </span>
-      </div>
     </div>
   </article>
 </template>
@@ -92,202 +80,142 @@ const props = withDefaults(defineProps<{
 <style scoped>
 /* ── Root ──────────────────────────────────── */
 .ac-root {
-  border-radius: 0.85rem;
-  border: 1px solid rgba(113, 113, 122, 0.42);
-  overflow: hidden;
   display: flex;
-  flex-direction: column;
-  transition: border-color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
+  gap: 2.5rem;
+  padding: 1.75rem 0;
+  border-top: 1px solid rgba(113, 113, 122, 0.18);
+  align-items: start;
+  transition: background 0.2s ease;
 }
 
 .ac-root:hover {
-  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.55);
+  background: rgba(142, 168, 195, 0.02);
 }
 
-/* Wide column span (used inside ob-grid) */
-.ac-wide { /* handled in parent grid via :class="wide && 'ac-wide'" */ }
+@media (max-width: 600px) {
+  .ac-root {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+/* Wide column span — layout handled by parent pa-grid */
 
 /* ── Themes ────────────────────────────────── */
-.ac-theme--dark {
-  background: rgba(16, 17, 22, 0.7);
-}
-.ac-theme--dark:hover  { border-color: rgba(148, 163, 184, 0.32); }
+.ac-theme--dark   { background: none; }
+.ac-theme--darker { background: none; }
+.ac-theme--ob:hover { background: rgba(74, 222, 128, 0.015); }
+.ac-theme--ob .ac-title { color: rgba(134, 239, 172, 0.85); }
 
-.ac-theme--darker {
-  background: rgba(10, 10, 14, 0.82);
-  border-style: dashed;
-  border-color: rgba(113, 113, 122, 0.28);
-}
-.ac-theme--darker:hover { border-color: rgba(148, 163, 184, 0.28); }
-
-.ac-theme--ob {
-  background: rgba(10, 18, 13, 0.65);
-  border-color: rgba(74, 222, 128, 0.1);
-}
-.ac-theme--ob:hover { border-color: rgba(74, 222, 128, 0.28); box-shadow: 0 20px 44px -16px rgba(0, 0, 0, 0.65); }
-
-/* ── Accent bars ───────────────────────────── */
-.ac-accent {
-  height: 3px;
-  width: 100%;
+/* ── Meta column (left) ────────────────────── */
+.ac-meta {
   flex-shrink: 0;
-}
-.ac-accent--blue   { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-.ac-accent--orange { background: linear-gradient(90deg, #f97316, #fb923c); }
-.ac-accent--purple { background: linear-gradient(90deg, #a855f7, #c084fc); }
-.ac-accent--green  { background: linear-gradient(90deg, #22c55e, #4ade80); }
-.ac-accent--pink   { background: linear-gradient(90deg, #ec4899, #f472b6); }
-
-/* ── Body ──────────────────────────────────── */
-.ac-body {
-  padding: 1.1rem 1.25rem 1.25rem;
-  flex: 1;
+  width: 11rem;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.55rem;
+  padding-top: 0.15rem;
 }
 
-/* ── Head ──────────────────────────────────── */
-.ac-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
+@media (max-width: 600px) {
+  .ac-meta { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+}
+
+/* Override global eyebrow letter-spacing in narrow column */
+.ac-meta .eyebrow {
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+}
+
+/* ── Content column (right) ────────────────── */
+.ac-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .ac-title {
-  font-family: "Syne", sans-serif;
-  font-size: 1.1rem;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #e4e4e7;
-  letter-spacing: -0.02em;
-  margin-top: 0.2rem;
-  line-height: 1.15;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  margin-bottom: 0.45rem;
 }
 
-/* ── Action button ─────────────────────────── */
+/* ── Action link ───────────────────────────── */
 .ac-btn {
-  font-size: 0.75rem;
-  border-radius: 6px;
-  padding: 0.22rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 500;
   text-decoration: none;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
+  transition: color 0.15s ease;
   cursor: none;
+  display: block;
 }
 
-.ac-btn--default {
-  color: #8ea8c3;
-  border: 1px solid rgba(142, 168, 195, 0.28);
-}
-.ac-btn--default:hover {
-  background: rgba(142, 168, 195, 0.1);
-  border-color: rgba(142, 168, 195, 0.55);
-  color: #c9d1d9;
-}
-
-.ac-btn--green {
-  color: rgba(74, 222, 128, 0.75);
-  border: 1px solid rgba(74, 222, 128, 0.22);
-}
-.ac-btn--green:hover {
-  background: rgba(74, 222, 128, 0.08);
-  border-color: rgba(74, 222, 128, 0.5);
-  color: rgba(134, 239, 172, 1);
-}
+.ac-btn--default { color: rgba(142, 168, 195, 0.5); }
+.ac-btn--default:hover { color: #c9d1d9; }
+.ac-btn--green { color: rgba(74, 222, 128, 0.5); }
+.ac-btn--green:hover { color: rgba(134, 239, 172, 1); }
 
 /* ── Status pill ───────────────────────────── */
 .ac-status-pill {
-  font-size: 0.63rem;
-  letter-spacing: 0.14em;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #94a3b8;
-  border: 1px solid rgba(113, 113, 122, 0.45);
-  border-radius: 99px;
-  padding: 0.14rem 0.5rem;
-  flex-shrink: 0;
-  white-space: nowrap;
+  color: #52525b;
 }
 
 /* ── Description ───────────────────────────── */
 .ac-desc {
   font-size: 0.9rem;
-  line-height: 1.75;
-  color: #94a3b8;
-  flex: 1;
+  line-height: 1.8;
+  color: #71717a;
 }
 
-/* Tags */
+.ac-desc p + p {
+  margin-top: 0.65rem;
+}
+
+.ac-desc nav {
+  margin-top: 0.25rem;
+}
+
+/* ── Tags ──────────────────────────────────── */
 .ac-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-top: auto;
+  margin-top: 0.75rem;
 }
 
 .ac-tag {
-  font-size: 0.68rem;
-  color: #71717a;
-  background: rgba(39, 39, 42, 0.7);
-  border: 1px solid rgba(63, 63, 70, 0.7);
-  border-radius: 4px;
-  padding: 0.15rem 0.45rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  color: #52525b;
+  border: 1px solid rgba(63, 63, 70, 0.5);
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
 }
 
-.ac-tag--blue   { color: #67e8f9; background: rgba(0, 125, 162, 0.15); border-color: rgba(0, 175, 220, 0.3); }
-.ac-tag--rust   { color: #fdba74; background: rgba(183, 65, 14, 0.15); border-color: rgba(249, 115, 22, 0.3); }
-.ac-tag--green  { color: #86efac; background: rgba(34, 197, 94, 0.12); border-color: rgba(74, 222, 128, 0.28); }
-.ac-tag--purple { color: #d8b4fe; background: rgba(168, 85, 247, 0.12); border-color: rgba(192, 132, 252, 0.28); }
-.ac-tag--orange { color: #fdba74; background: rgba(249, 115, 22, 0.12); border-color: rgba(251, 146, 60, 0.28); }
+.ac-tag--blue   { color: rgba(96, 165, 250, 0.6);  border-color: rgba(59, 130, 246, 0.2); }
+.ac-tag--rust   { color: rgba(253, 186, 116, 0.6); border-color: rgba(249, 115, 22, 0.2); }
+.ac-tag--green  { color: rgba(134, 239, 172, 0.6); border-color: rgba(74, 222, 128, 0.2); }
+.ac-tag--purple { color: rgba(216, 180, 254, 0.6); border-color: rgba(168, 85, 247, 0.2); }
+.ac-tag--orange { color: rgba(253, 186, 116, 0.6); border-color: rgba(249, 115, 22, 0.2); }
 
-/* ── Footer ────────────────────────────────── */
-.ac-foot {
+/* ── Footer meta ───────────────────────────── */
+.ac-foot-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: auto;
-  padding-top: 0.6rem;
-  border-top: 1px solid rgba(113, 113, 122, 0.1);
-}
-
-.ac-theme--ob .ac-foot {
-  border-top-color: rgba(74, 222, 128, 0.07);
+  gap: 0.3rem;
 }
 
 .ac-foot-label {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #52525b;
+  color: #3f3f46;
 }
 
-.ac-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.65rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(74, 222, 128, 0.65);
-}
-
-.ac-live-dot {
-  width: 6px;
-  height: 6px;
-  background: #4ade80;
-  border-radius: 50%;
-  animation: pulse-dot 2s ease-in-out infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(0.82); }
-}
-
-/* root hover lift */
-.ac-root:hover {
-  transform: translateY(-2px);
-  filter: drop-shadow(0 12px 30px rgba(14, 20, 29, 0.5));
-}
 </style>

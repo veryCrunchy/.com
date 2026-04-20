@@ -20,6 +20,7 @@ import type {
   CmsStreetDeliveryAdminContactPreview,
   CmsStreetDeliveryAdminPhotoLink,
   CmsStreetDeliveryAdminSessionDetail,
+  CmsStreetDeliveryDistributionState,
   CmsStreetDeliveryAdminSessionSummary,
   CmsStreetDeliveryContactMethod,
   CmsStreetDeliveryGallery,
@@ -45,6 +46,7 @@ const STREET_SESSION_FIELDS = [
   "code",
   "date_created",
   "date_updated",
+  "distribution_state",
   "printed_at",
   "photographed_at",
   "location",
@@ -61,6 +63,38 @@ const STREET_SESSION_FIELDS_FALLBACK = [
   "code",
   "date_created",
   "date_updated",
+  "photographed_at",
+  "location",
+  "public_enabled",
+  "gallery_token",
+  "last_submission_at",
+  "delivered_at",
+  "notes",
+] as const;
+
+const STREET_SESSION_FIELDS_WITH_DISTRIBUTION = [
+  "id",
+  "status",
+  "code",
+  "date_created",
+  "date_updated",
+  "distribution_state",
+  "photographed_at",
+  "location",
+  "public_enabled",
+  "gallery_token",
+  "last_submission_at",
+  "delivered_at",
+  "notes",
+] as const;
+
+const STREET_SESSION_FIELDS_WITH_PRINTED_AT = [
+  "id",
+  "status",
+  "code",
+  "date_created",
+  "date_updated",
+  "printed_at",
   "photographed_at",
   "location",
   "public_enabled",
@@ -117,6 +151,7 @@ type DirectusTokenClient = NonNullable<ReturnType<typeof getDirectusClient>>;
 type StreetDeliverySessionQueryResult = {
   sessions: DirectusStreetDeliverySession[];
   printedAtAvailable: boolean;
+  distributionStateAvailable: boolean;
 };
 
 export type StreetDeliverySubmissionInput = {
@@ -145,6 +180,7 @@ export type StreetDeliveryAdminSessionUpdateInput = {
   photographedAt?: string | null;
   location?: string | null;
   publicEnabled?: boolean;
+  distributionState?: CmsStreetDeliveryDistributionState | null;
   printedAt?: string | null;
   regenerateGalleryToken?: boolean;
 };
@@ -221,7 +257,10 @@ function withDirectusAuthGuard(error: unknown): never {
   throw error;
 }
 
-function isPrintedAtUnavailableError(error: unknown) {
+function isOptionalSessionFieldUnavailableError(
+  error: unknown,
+  field: "printed_at" | "distribution_state"
+) {
   const fragments: string[] = [];
 
   const visit = (value: unknown, depth = 0) => {
@@ -263,7 +302,7 @@ function isPrintedAtUnavailableError(error: unknown) {
   const text = fragments.join(" | ");
 
   return (
-    text.includes("printed_at")
+    text.includes(field)
     && /(permission|access field|does not exist|unknown field|forbidden|invalid)/i.test(text)
   );
 }
@@ -274,6 +313,35 @@ function createPrintedAtUnavailableError() {
     statusMessage:
       "The `printed_at` field is not available to this Directus role yet. Run the street-delivery setup and grant your admin role access to that field.",
   });
+}
+
+function createDistributionStateUnavailableError() {
+  return createError({
+    statusCode: 503,
+    statusMessage:
+      "The `distribution_state` field is not available to this Directus role yet. Run the street-delivery setup and grant your admin role access to that field.",
+  });
+}
+
+function normalizeDistributionState(
+  value: string | null | undefined,
+  printedAt?: string | null
+): CmsStreetDeliveryDistributionState {
+  const normalized = String(value || "").trim().toLowerCase();
+
+  if (normalized === "printed" || normalized === "sent") {
+    return normalized;
+  }
+
+  if (printedAt) {
+    return "printed";
+  }
+
+  return "available";
+}
+
+function stripDistributionStateFromItems(items: Array<Record<string, unknown>>) {
+  return items.map(({ distribution_state: _distributionState, ...item }) => item);
 }
 
 async function readStreetDeliverySessionRecords(
@@ -291,24 +359,70 @@ async function readStreetDeliverySessionRecords(
     return {
       sessions,
       printedAtAvailable: true,
+      distributionStateAvailable: true,
     };
   } catch (error) {
-    if (!isPrintedAtUnavailableError(error)) {
+    if (
+      !isOptionalSessionFieldUnavailableError(error, "distribution_state")
+      && !isOptionalSessionFieldUnavailableError(error, "printed_at")
+    ) {
       throw error;
     }
+  }
 
+  try {
     const sessions = (await client.request(
       readItems("street_delivery_sessions", {
         ...query,
-        fields: STREET_SESSION_FIELDS_FALLBACK as never,
+        fields: STREET_SESSION_FIELDS_WITH_PRINTED_AT as never,
+      })
+    )) as DirectusStreetDeliverySession[];
+
+    return {
+      sessions,
+      printedAtAvailable: true,
+      distributionStateAvailable: false,
+    };
+  } catch (error) {
+    if (!isOptionalSessionFieldUnavailableError(error, "printed_at")) {
+      throw error;
+    }
+  }
+
+  try {
+    const sessions = (await client.request(
+      readItems("street_delivery_sessions", {
+        ...query,
+        fields: STREET_SESSION_FIELDS_WITH_DISTRIBUTION as never,
       })
     )) as DirectusStreetDeliverySession[];
 
     return {
       sessions,
       printedAtAvailable: false,
+      distributionStateAvailable: true,
     };
+  } catch (error) {
+    if (
+      !isOptionalSessionFieldUnavailableError(error, "distribution_state")
+      && !isOptionalSessionFieldUnavailableError(error, "printed_at")
+    ) {
+      throw error;
+    }
   }
+
+  const sessions = (await client.request(
+    readItems("street_delivery_sessions", {
+      ...query,
+      fields: STREET_SESSION_FIELDS_FALLBACK as never,
+    })
+  )) as DirectusStreetDeliverySession[];
+
+  return {
+    sessions,
+    printedAtAvailable: false,
+    distributionStateAvailable: false,
+  };
 }
 
 async function createStreetDeliverySessionRecords(
@@ -325,23 +439,61 @@ async function createStreetDeliverySessionRecords(
     return {
       sessions,
       printedAtAvailable: true,
+      distributionStateAvailable: true,
     };
   } catch (error) {
-    if (!isPrintedAtUnavailableError(error)) {
+    if (!isOptionalSessionFieldUnavailableError(error, "distribution_state")) {
       throw error;
     }
+  }
 
+  try {
+    const sessions = (await client.request(
+      createItems("street_delivery_sessions", stripDistributionStateFromItems(items), {
+        fields: STREET_SESSION_FIELDS_WITH_PRINTED_AT as never,
+      })
+    )) as DirectusStreetDeliverySession[];
+
+    return {
+      sessions,
+      printedAtAvailable: true,
+      distributionStateAvailable: false,
+    };
+  } catch (error) {
+    if (!isOptionalSessionFieldUnavailableError(error, "printed_at")) {
+      throw error;
+    }
+  }
+
+  try {
     const sessions = (await client.request(
       createItems("street_delivery_sessions", items, {
-        fields: STREET_SESSION_FIELDS_FALLBACK as never,
+        fields: STREET_SESSION_FIELDS_WITH_DISTRIBUTION as never,
       })
     )) as DirectusStreetDeliverySession[];
 
     return {
       sessions,
       printedAtAvailable: false,
+      distributionStateAvailable: true,
     };
+  } catch (error) {
+    if (!isOptionalSessionFieldUnavailableError(error, "distribution_state")) {
+      throw error;
+    }
   }
+
+  const sessions = (await client.request(
+    createItems("street_delivery_sessions", stripDistributionStateFromItems(items), {
+      fields: STREET_SESSION_FIELDS_FALLBACK as never,
+    })
+  )) as DirectusStreetDeliverySession[];
+
+  return {
+    sessions,
+    printedAtAvailable: false,
+    distributionStateAvailable: false,
+  };
 }
 
 function normalizeSessionCode(rawCode: string) {
@@ -764,6 +916,7 @@ function normalizeAdminSessionSummary(
 ): CmsStreetDeliveryAdminSessionSummary {
   const latestContact = contacts[0] ? normalizeAdminContactPreview(contacts[0]) : null;
   const galleryReady = Boolean(session.status === "delivered" && session.gallery_token);
+  const distributionState = normalizeDistributionState(session.distribution_state, session.printed_at);
 
   return {
     id: session.id,
@@ -771,8 +924,9 @@ function normalizeAdminSessionSummary(
     status: session.status || null,
     createdAt: session.date_created || null,
     updatedAt: session.date_updated || null,
+    distributionState,
     printedAt: session.printed_at || null,
-    printed: Boolean(session.printed_at),
+    printed: distributionState === "printed",
     photographedAt: session.photographed_at || null,
     location: session.location || null,
     publicEnabled: Boolean(session.public_enabled),
@@ -1268,6 +1422,7 @@ export async function createStreetDeliveryAdminBatch(
       codes.map((code, index) => ({
         code,
         status: "new",
+        distribution_state: "available",
         public_enabled: true,
         gallery_token: galleryTokens[index],
       }))
@@ -1327,7 +1482,21 @@ export async function updateStreetDeliveryAdminSession(
       payload.public_enabled = Boolean(input.publicEnabled);
     }
 
-    if ("printedAt" in input) {
+    if ("distributionState" in input) {
+      const nextDistributionState = normalizeDistributionState(input.distributionState, null);
+
+      if (sessionQuery.distributionStateAvailable) {
+        payload.distribution_state = nextDistributionState;
+      } else if (nextDistributionState === "available" || nextDistributionState === "printed") {
+        if (!sessionQuery.printedAtAvailable) {
+          throw createDistributionStateUnavailableError();
+        }
+
+        payload.printed_at = nextDistributionState === "printed" ? new Date().toISOString() : null;
+      } else {
+        throw createDistributionStateUnavailableError();
+      }
+    } else if ("printedAt" in input) {
       if (!sessionQuery.printedAtAvailable) {
         throw createPrintedAtUnavailableError();
       }
@@ -1390,14 +1559,12 @@ export async function deleteStreetDeliveryAdminSession(
       });
     }
 
-    if (!sessionQuery.printedAtAvailable) {
-      throw createPrintedAtUnavailableError();
-    }
+    const distributionState = normalizeDistributionState(session.distribution_state, session.printed_at);
 
-    if (session.printed_at) {
+    if (distributionState !== "available") {
       throw createError({
         statusCode: 409,
-        statusMessage: "Printed codes cannot be deleted. Mark it unprinted first if this was a mistake.",
+        statusMessage: "Only available codes can be deleted. Reset the code state first if this was a mistake.",
       });
     }
 

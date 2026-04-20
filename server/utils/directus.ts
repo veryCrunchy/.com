@@ -4,6 +4,8 @@ import type { H3Event } from "h3";
 import type {
   CmsAsset,
   CmsCameraMeta,
+  CmsChapter,
+  CmsChapterItem,
   CmsLensMeta,
   CmsLocationMeta,
   CmsMotionFrame,
@@ -23,6 +25,8 @@ import type {
   CmsTimelineSummary,
   DirectusCameraBody,
   DirectusAsset,
+  DirectusChapter,
+  DirectusChapterItem,
   DirectusLens,
   DirectusLocation,
   DirectusPhoto,
@@ -1295,6 +1299,92 @@ export async function readDirectusProjects(event: H3Event | undefined) {
 
     return projects.map(normalizeProject);
   } catch {
+    return [];
+  }
+}
+
+const CHAPTER_ITEM_FIELDS = [
+  "id",
+  "sort",
+  "type",
+  "sub_section_num",
+  "sub_section_title",
+  "sub_section_lead",
+  "project",
+  "para_card_text",
+  "component",
+] as const;
+
+const CHAPTER_FIELDS = [
+  "id",
+  "sort",
+  "slug",
+  "chapter_num",
+  "watermark",
+  "title",
+  "chapter_label",
+  "title_href",
+  "tagline",
+  "description",
+  "theme",
+  "card_theme",
+  "marquee_items",
+  "footer_links",
+  { items: CHAPTER_ITEM_FIELDS },
+] as const;
+
+export function normalizeChapterItem(item: DirectusChapterItem): CmsChapterItem {
+  return {
+    id: item.id,
+    sort: item.sort ?? null,
+    type: item.type,
+    subSectionNum: item.sub_section_num ?? null,
+    subSectionTitle: item.sub_section_title ?? null,
+    subSectionLead: item.sub_section_lead ?? null,
+    projectId: typeof item.project === "number" ? item.project : null,
+    paraCardText: item.para_card_text ?? null,
+    component: item.component ?? null,
+  };
+}
+
+export function normalizeChapter(chapter: DirectusChapter): CmsChapter {
+  return {
+    id: chapter.id,
+    sort: chapter.sort ?? null,
+    slug: chapter.slug,
+    chapterNum: chapter.chapter_num,
+    watermark: chapter.watermark ?? null,
+    title: chapter.title,
+    chapterLabel: chapter.chapter_label ?? null,
+    titleHref: chapter.title_href ?? null,
+    tagline: chapter.tagline ?? null,
+    description: chapter.description ?? null,
+    theme: chapter.theme,
+    cardTheme: chapter.card_theme,
+    marqueeItems: chapter.marquee_items ?? null,
+    footerLinks: chapter.footer_links ?? null,
+    items: (chapter.items ?? []).map(normalizeChapterItem),
+  };
+}
+
+export async function readDirectusChapters(event: H3Event | undefined) {
+  const client = getDirectusClient(event);
+  if (!client) return [];
+
+  try {
+    const chapters = (await client.request(
+      readItems("chapters", {
+        fields: CHAPTER_FIELDS as never,
+        filter: { status: { _eq: "published" } },
+        sort: ["sort"] as never,
+        limit: -1,
+        deep: { items: { _sort: ["sort"], _limit: -1 } } as never,
+      })
+    )) as DirectusChapter[];
+
+    return chapters.map(normalizeChapter);
+  } catch (e) {
+    console.error("readDirectusChapters error:", e);
     return [];
   }
 }

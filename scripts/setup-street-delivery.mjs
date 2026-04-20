@@ -75,6 +75,12 @@ const CONTACT_METHOD_CHOICES = [
   { text: "Phone", value: "phone" },
 ];
 
+const DISTRIBUTION_STATE_CHOICES = [
+  { text: "Available", value: "available" },
+  { text: "Printed", value: "printed" },
+  { text: "Sent", value: "sent" },
+];
+
 const STREET_DELIVERY_REQUEST_TEMPLATE_DEFAULT = `Hi! I photographed you recently and I’m sorting the photos now.
 When you get a chance, could you fill in this short form? [form link]
 It helps me make sure I match the right photos to the right person, and it lets you note your preference for public sharing.
@@ -147,6 +153,18 @@ if (await collectionExists("street_delivery_sessions")) {
         type: "timestamp",
         meta: { special: ["date-updated"], readonly: true, hidden: true },
         schema: { is_nullable: true },
+      },
+      {
+        field: "distribution_state",
+        type: "string",
+        meta: {
+          interface: "select-dropdown",
+          display: "labels",
+          width: "half",
+          note: "Whether this code is still available, already printed on a card, or sent directly.",
+          options: { choices: DISTRIBUTION_STATE_CHOICES },
+        },
+        schema: { default_value: "available", is_nullable: false, max_length: 32 },
       },
       {
         field: "printed_at",
@@ -239,6 +257,26 @@ if (await fieldExists("street_delivery_sessions", "printed_at")) {
 
   if (result.ok) console.log("  ✔  field: street_delivery_sessions.printed_at");
   else console.warn("  ⚠   printed_at field:", JSON.stringify(result.data));
+}
+
+if (await fieldExists("street_delivery_sessions", "distribution_state")) {
+  console.log("  –  street_delivery_sessions.distribution_state field already exists");
+} else {
+  const result = await api("POST", "/fields/street_delivery_sessions", {
+    field: "distribution_state",
+    type: "string",
+    meta: {
+      interface: "select-dropdown",
+      display: "labels",
+      width: "half",
+      note: "Whether this code is still available, already printed on a card, or sent directly.",
+      options: { choices: DISTRIBUTION_STATE_CHOICES },
+    },
+    schema: { default_value: "available", is_nullable: false, max_length: 32 },
+  });
+
+  if (result.ok) console.log("  ✔  field: street_delivery_sessions.distribution_state");
+  else console.warn("  ⚠   distribution_state field:", JSON.stringify(result.data));
 }
 
 if (await fieldExists("site_settings", "street_delivery_request_message_template")) {

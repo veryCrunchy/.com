@@ -211,6 +211,7 @@ export interface DirectusStreetDeliverySession {
   code: string;
   date_created?: string | null;
   date_updated?: string | null;
+  distribution_state?: string | null;
   printed_at?: string | null;
   photographed_at?: string | null;
   location?: string | null;
@@ -244,6 +245,38 @@ export interface DirectusStreetDeliverySessionPhoto {
   sort?: number | null;
 }
 
+export interface DirectusChapterItem {
+  id: number;
+  sort?: number | null;
+  chapter?: number | null;
+  type: 'sub_section' | 'project' | 'para_card' | 'component';
+  sub_section_num?: string | null;
+  sub_section_title?: string | null;
+  sub_section_lead?: string | null;
+  project?: number | null;
+  para_card_text?: string | null;
+  component?: string | null;
+}
+
+export interface DirectusChapter {
+  id: number;
+  sort?: number | null;
+  status?: string | null;
+  slug: string;
+  chapter_num: string;
+  watermark?: string | null;
+  title: string;
+  chapter_label?: string | null;
+  title_href?: string | null;
+  tagline?: string | null;
+  description?: string | null;
+  theme: string;
+  card_theme: string;
+  marquee_items?: string[] | null;
+  footer_links?: Array<{ href: string; label: string; dim?: boolean }> | null;
+  items?: DirectusChapterItem[] | null;
+}
+
 export interface DirectusSchema {
   site_settings: DirectusSiteSettings[];
   posts: DirectusPost[];
@@ -261,6 +294,8 @@ export interface DirectusSchema {
   street_delivery_contacts: DirectusStreetDeliveryContact[];
   street_delivery_session_photos: DirectusStreetDeliverySessionPhoto[];
   projects: DirectusProject[];
+  chapters: DirectusChapter[];
+  chapter_items: DirectusChapterItem[];
 }
 
 export interface CmsAsset {
@@ -454,6 +489,7 @@ export interface CmsTimelineRef {
 }
 
 export type CmsStreetDeliveryContactMethod = "email" | "instagram" | "phone";
+export type CmsStreetDeliveryDistributionState = "available" | "printed" | "sent";
 
 export interface CmsStreetDeliverySessionPublic {
   id: number;
@@ -491,6 +527,7 @@ export interface CmsStreetDeliveryAdminSessionSummary {
   status: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  distributionState: CmsStreetDeliveryDistributionState;
   printedAt: string | null;
   printed: boolean;
   photographedAt: string | null;
@@ -525,9 +562,40 @@ export interface CmsPhoto extends CmsPhotoSummary {
   shots: CmsPhotoShot[];
 }
 
+export interface CmsChapterItem {
+  id: number;
+  sort: number | null;
+  type: 'sub_section' | 'project' | 'para_card' | 'component';
+  subSectionNum: string | null;
+  subSectionTitle: string | null;
+  subSectionLead: string | null;
+  projectId: number | null;
+  paraCardText: string | null;
+  component: string | null;
+}
+
+export interface CmsChapter {
+  id: number;
+  sort: number | null;
+  slug: string;
+  chapterNum: string;
+  watermark: string | null;
+  title: string;
+  chapterLabel: string | null;
+  titleHref: string | null;
+  tagline: string | null;
+  description: string | null;
+  theme: string;
+  cardTheme: string;
+  marqueeItems: string[] | null;
+  footerLinks: Array<{ href: string; label: string; dim?: boolean }> | null;
+  items: CmsChapterItem[];
+}
+
 export interface CmsHomePayload {
   site: CmsSiteSettings;
   recentPosts: CmsPostSummary[];
   recentPhotos: CmsPhotoSummary[];
   projects: CmsProject[];
+  chapters: CmsChapter[];
 }

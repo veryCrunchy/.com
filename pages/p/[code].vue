@@ -459,7 +459,6 @@
 
   .street-copy {
     padding-top: 0.75rem;
-    overflow: visible;
   }
 
   .street-topbar {
@@ -507,17 +506,17 @@
   }
 
   h1 {
-    margin: 0 0 0.1em;
-    font-family: "Syne", sans-serif;
+    margin: 0;
+    font-family: "Bricolage Grotesque", sans-serif;
     font-size: clamp(2.5rem, 5vw, 5rem);
-    line-height: 1.25;
-    letter-spacing: -0.05em;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
     max-width: 12ch;
   }
 
   .street-lede {
     max-width: 38rem;
-    margin: 1.2rem 0 0;
+    margin: 0.75rem 0 0;
     color: #d1c8bb;
     font-size: 1.02rem;
     line-height: 1.72;
