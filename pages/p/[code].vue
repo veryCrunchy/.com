@@ -10,6 +10,10 @@
 
   type StreetLocale = "en" | "nl";
 
+  definePageMeta({
+    layout: false,
+  });
+
   const route = useRoute();
   const { data: shell } = await useCmsShell();
 

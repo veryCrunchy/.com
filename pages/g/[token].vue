@@ -4,6 +4,10 @@
   import { DEFAULT_CMS_SITE_SETTINGS } from "~/types/directus";
   import type { CmsStreetDeliveryGallery } from "~/types/directus";
 
+  definePageMeta({
+    layout: false,
+  });
+
   const route = useRoute();
   const { data: shell } = await useCmsShell();
 
