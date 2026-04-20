@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import type { ComponentPublicInstance } from "vue";
   const props = withDefaults(
     defineProps<{
       src?: string | null;
       srcset?: string | null;
       sizes?: string | null;
       fallbackSrc?: string | null;
+      blurPreview?: string | null;
       alt?: string | null;
       aspectRatio?: string | null;
       fit?: "cover" | "contain";
@@ -16,6 +18,7 @@
       srcset: null,
       sizes: null,
       fallbackSrc: null,
+      blurPreview: null,
       alt: null,
       aspectRatio: null,
       fit: "cover",
@@ -26,6 +29,7 @@
 
   const isLoaded = ref(false);
   const hasError = ref(false);
+  const previewLoaded = ref(false);
   const currentSourceIndex = ref(0);
   const sources = computed(() => Array.from(new Set([props.src, props.fallbackSrc].filter(Boolean))) as string[]);
   const activeSrc = computed(() => sources.value[currentSourceIndex.value] || null);
@@ -37,6 +41,7 @@
     () => {
       isLoaded.value = false;
       hasError.value = false;
+      previewLoaded.value = false;
       currentSourceIndex.value = 0;
     },
     { immediate: true }
@@ -50,6 +55,15 @@
     }
 
     hasError.value = true;
+  }
+
+  // Browsers fire the load event before Vue attaches listeners when the image
+  // is already cached. Check img.complete as a fallback whenever the element mounts.
+  function onMainImgMount(el: Element | ComponentPublicInstance | null) {
+    const img = el as HTMLImageElement | null;
+    if (img?.complete && img.naturalHeight > 0) {
+      isLoaded.value = true;
+    }
   }
 </script>
 
@@ -66,7 +80,17 @@
   >
     <div class="photo-asset-skeleton" aria-hidden="true" />
     <img
+      v-if="blurPreview"
+      class="photo-asset-blur-preview"
+      :src="blurPreview"
+      alt=""
+      aria-hidden="true"
+      :class="{ 'photo-asset-blur-preview--visible': previewLoaded && !isLoaded }"
+      @load="previewLoaded = true"
+    />
+    <img
       v-if="activeSrc"
+      :ref="onMainImgMount"
       :src="activeSrc"
       :srcset="activeSrcset || undefined"
       :sizes="activeSizes || undefined"
@@ -102,9 +126,27 @@
     transition: opacity 0.3s ease;
   }
 
-  .photo-asset img {
-    position: relative;
+  .photo-asset-blur-preview {
+    position: absolute;
+    inset: 0;
     z-index: 1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(20px);
+    transform: scale(1.1);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+
+  .photo-asset-blur-preview--visible {
+    opacity: 1;
+  }
+
+  .photo-asset img:not(.photo-asset-blur-preview) {
+    position: relative;
+    z-index: 2;
     width: 100%;
     height: 100%;
     display: block;
@@ -114,7 +156,7 @@
     transition: opacity 0.32s ease, transform 0.45s ease;
   }
 
-  .photo-asset--contain img {
+  .photo-asset--contain img:not(.photo-asset-blur-preview) {
     object-fit: contain;
     background: rgba(4, 6, 7, 0.82);
   }
@@ -124,7 +166,11 @@
     pointer-events: none;
   }
 
-  .photo-asset--loaded img {
+  .photo-asset--loaded .photo-asset-blur-preview {
+    opacity: 0;
+  }
+
+  .photo-asset--loaded img:not(.photo-asset-blur-preview) {
     opacity: 1;
     transform: scale(1);
   }

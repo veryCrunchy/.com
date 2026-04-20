@@ -150,8 +150,9 @@
             <div class="photo-set-thumb-image">
               <PhotoAsset
                 v-if="timeline.coverImage"
-                :src="timeline.coverImage.previewUrl || timeline.coverImage.url"
-                :srcset="timeline.coverImage.previewSrcset || timeline.coverImage.srcset"
+                :src="timeline.coverImage.url"
+                :srcset="timeline.coverImage.srcset"
+                :blur-preview="timeline.coverImage.previewUrl"
                 sizes="(min-width: 1200px) 22rem, (min-width: 768px) 45vw, 100vw"
                 :fallback-src="timeline.coverImage.fallbackUrl"
                 :alt="timeline.coverImage.alt || timeline.title"
@@ -199,8 +200,9 @@
             <div class="photo-set-thumb-image">
               <PhotoAsset
                 v-if="set.coverImage"
-                :src="set.coverImage.previewUrl || set.coverImage.url"
-                :srcset="set.coverImage.previewSrcset || set.coverImage.srcset"
+                :src="set.coverImage.url"
+                :srcset="set.coverImage.srcset"
+                :blur-preview="set.coverImage.previewUrl"
                 sizes="(min-width: 1200px) 22rem, (min-width: 768px) 45vw, 100vw"
                 :fallback-src="set.coverImage.fallbackUrl"
                 :alt="set.coverImage.alt || set.title"
@@ -247,39 +249,37 @@
           :key="photo.id"
           class="photo-card"
         >
-          <div class="photo-card-image">
-            <InteractivePhotoSurface
-              :photo="photo"
-              aspect-ratio="1 / 1"
+          <NuxtLink :to="`/photos/${photo.slug}`" class="photo-card-image-wrap">
+            <PhotoAsset
+              :src="photo.image?.url"
+              :srcset="photo.image?.srcset"
+              :blur-preview="photo.image?.previewUrl"
+              sizes="(min-width: 1280px) 24rem, (min-width: 768px) 45vw, 95vw"
+              :fallback-src="photo.image?.fallbackUrl"
+              :alt="photo.image?.alt || photo.title"
+              aspect-ratio="4 / 3"
               fit="cover"
-              :detail-href="`/photos/${photo.slug}`"
             />
-          </div>
+            <span v-if="photo.hasMotion" class="photo-card-motion-pill">
+              Motion · {{ photo.motionFrameCount }} frame{{ photo.motionFrameCount !== 1 ? 's' : '' }}
+            </span>
+          </NuxtLink>
           <div class="photo-card-copy">
             <div class="photo-card-eyebrow">
-              <span class="photo-card-kind">{{ photo.hasMotion ? "Moment" : "Photo" }}</span>
-              <span>{{ formatDate(photo.takenAt || photo.publishedAt) }}</span>
+              <time>{{ formatDate(photo.takenAt || photo.publishedAt) }}</time>
+              <span v-if="photo.location" class="photo-card-place">{{ formatLocationLabel(photo) }}</span>
             </div>
-            <div class="photo-card-head">
-              <NuxtLink :to="`/photos/${photo.slug}`" class="photo-card-title-link">
-                <h2>{{ photo.title }}</h2>
-              </NuxtLink>
-              <p class="photo-card-place">{{ formatLocationLabel(photo) }}</p>
-            </div>
-            <p class="photo-card-summary">{{ photo.description || "Open the photo page for the full frame and notes." }}</p>
-            <div class="photo-card-meta">
-              <span v-if="photo.hasMotion">{{ formatMotionLabel(photo) }}</span>
-              <span>{{ orientationLabel(photo.image?.width, photo.image?.height) }}</span>
-              <span>{{ formatDimensions(photo.image?.width, photo.image?.height) }}</span>
-              <span v-if="photo.camera">{{ photo.camera }}</span>
-            </div>
+            <NuxtLink :to="`/photos/${photo.slug}`" class="photo-card-title-link">
+              <h2>{{ photo.title }}</h2>
+            </NuxtLink>
+            <p v-if="photo.description" class="photo-card-desc">{{ photo.description }}</p>
           </div>
         </article>
       </section>
 
       <section v-else-if="isArchiveLoading" class="photo-grid photo-grid-skeleton" aria-live="polite">
         <article v-for="index in photoSkeletons" :key="index" class="photo-card photo-card-skeleton" aria-hidden="true">
-          <div class="photo-card-image">
+          <div class="photo-card-image-wrap">
             <div class="photo-skeleton-block photo-skeleton-image" />
           </div>
           <div class="photo-card-copy">
@@ -303,7 +303,7 @@
     min-height: 100dvh;
     padding: 6.75rem 1.25rem 4rem;
     background:
-      radial-gradient(circle at top, rgba(34, 197, 94, 0.11), transparent 34%),
+      radial-gradient(circle at top, rgba(34, 197, 94, 0.06), transparent 34%),
       linear-gradient(180deg, #050608 0%, #0a0c10 100%);
     color: #e2e8f0;
   }
@@ -437,21 +437,20 @@
   .photo-card {
     overflow: hidden;
     border-radius: 1.3rem;
-    border: 1px solid rgba(148, 163, 184, 0.16);
-    background: rgba(8, 15, 10, 0.9);
-    box-shadow: 0 24px 44px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(10, 13, 18, 0.92);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
     transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
   }
 
   .photo-set-thumb:hover,
   .photo-card:hover {
     transform: translateY(-3px);
-    border-color: rgba(134, 239, 172, 0.36);
-    box-shadow: 0 30px 48px rgba(0, 0, 0, 0.34);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.36);
   }
 
-  .photo-set-thumb-image,
-  .photo-card-image {
+  .photo-set-thumb-image {
     overflow: hidden;
     background: rgba(15, 23, 42, 0.5);
   }
@@ -461,8 +460,7 @@
     background: linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(15, 23, 42, 0.8));
   }
 
-  .photo-set-thumb-copy,
-  .photo-card-copy {
+  .photo-set-thumb-copy {
     display: grid;
     gap: 0.75rem;
     padding: 1rem 1rem 1.1rem;
@@ -476,75 +474,72 @@
     justify-content: space-between;
   }
 
+  .photo-card-image-wrap {
+    display: block;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .photo-card-motion-pill {
+    position: absolute;
+    top: 0.65rem;
+    left: 0.65rem;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.26rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    background: rgba(8, 20, 12, 0.82);
+    backdrop-filter: blur(8px);
+    color: #86efac;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    pointer-events: none;
+  }
+
+  .photo-card-copy {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem 0.95rem;
+  }
+
   .photo-card-eyebrow {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
+    gap: 0.5rem 0.75rem;
+    flex-wrap: wrap;
+    font-size: 0.71rem;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #86efac;
-  }
-
-  .photo-card-kind {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.24rem 0.5rem;
-    border-radius: 999px;
-    border: 1px solid rgba(74, 222, 128, 0.2);
-    background: rgba(34, 197, 94, 0.12);
-  }
-
-  .photo-card-head {
-    display: grid;
-    gap: 0.3rem;
-  }
-
-  .photo-card-title-link:hover h2 {
-    color: #86efac;
-  }
-
-  .photo-set-thumb-title,
-  .photo-card-head h2,
-  .photo-grid-head h2,
-  .photo-empty h2 {
-    font-family: "Syne", sans-serif;
-    font-size: 1.35rem;
-    line-height: 1.05;
-    letter-spacing: -0.03em;
-    color: #f8fafc;
-  }
-
-  .photo-grid-head h2 {
-    font-size: clamp(1.8rem, 3vw, 2.6rem);
-  }
-
-  .photo-set-thumb-count,
-  .photo-card-head span {
-    font-size: 0.74rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #86efac;
-  }
-
-  .photo-set-thumb-copy p,
-  .photo-empty p {
-    line-height: 1.75;
-    color: #cbd5e1;
+    color: #52525b;
   }
 
   .photo-card-place {
-    font-size: 0.88rem;
-    color: #94a3b8;
+    color: #3f3f46;
   }
 
-  .photo-card-summary {
-    line-height: 1.72;
-    color: #cbd5e1;
+  .photo-card-title-link h2 {
+    font-family: "Syne", sans-serif;
+    font-size: 1.1rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: #e2e8f0;
+    transition: color 0.15s ease;
+  }
+
+  .photo-card-title-link:hover h2 {
+    color: #f8fafc;
+  }
+
+  .photo-card-desc {
+    font-size: 0.85rem;
+    line-height: 1.65;
+    color: #52525b;
     display: -webkit-box;
-    line-clamp: 3;
-    -webkit-line-clamp: 3;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -553,26 +548,45 @@
     margin-top: 2.6rem;
   }
 
+  .photo-set-thumb-title {
+    font-family: "Syne", sans-serif;
+    font-size: 1.2rem;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: #f8fafc;
+  }
+
+  .photo-set-thumb-count {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #86efac;
+  }
+
+  .photo-set-thumb-copy p,
+  .photo-empty p {
+    line-height: 1.75;
+    color: #94a3b8;
+  }
+
+  .photo-grid-head h2 {
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    font-family: "Syne", sans-serif;
+    letter-spacing: -0.03em;
+    color: #f8fafc;
+  }
+
+  .photo-empty h2 {
+    font-family: "Syne", sans-serif;
+    font-size: 1.35rem;
+    color: #f8fafc;
+  }
+
   .photo-grid {
     display: grid;
     gap: 1rem;
     margin-top: 1.2rem;
-    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-  }
-
-  .photo-card-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .photo-card-meta span {
-    font-size: 0.72rem;
-    color: #d1fae5;
-    background: rgba(34, 197, 94, 0.12);
-    border: 1px solid rgba(74, 222, 128, 0.2);
-    border-radius: 999px;
-    padding: 0.24rem 0.55rem;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
   }
 
   .photo-empty {
@@ -593,7 +607,7 @@
 
   .photo-skeleton-image {
     width: 100%;
-    aspect-ratio: 1;
+    aspect-ratio: 4 / 3;
   }
 
   .photo-set-thumb-skeleton .photo-skeleton-image {
