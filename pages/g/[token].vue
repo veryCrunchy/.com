@@ -91,7 +91,7 @@
         >
           <img
             v-if="photo.image"
-            :src="photo.image.previewUrl || photo.image.url || photo.image.fallbackUrl || undefined"
+            :src="photo.image.fallbackUrl || photo.image.url || photo.image.previewUrl || undefined"
             :alt="photo.image.alt || photo.title"
             loading="lazy"
           >
@@ -102,9 +102,8 @@
             </div>
             <a
               class="gallery-download"
-              :href="photo.image?.fallbackUrl || photo.image?.url || '#'"
-              target="_blank"
-              rel="noopener"
+              :href="photo.image?.fallbackUrl || '#'"
+              :download="photo.image?.downloadFilename || photo.title || undefined"
             >
               Download
             </a>

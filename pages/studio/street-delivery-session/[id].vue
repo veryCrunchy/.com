@@ -609,7 +609,7 @@
                   rel="noopener"
                 >
                   <img
-                    :src="link.photo?.image?.previewUrl || link.photo?.image?.url || ''"
+                    :src="link.photo?.image?.fallbackUrl || link.photo?.image?.url || link.photo?.image?.previewUrl || ''"
                     :alt="link.photo?.title || 'Street delivery photo'"
                   >
                 </a>
