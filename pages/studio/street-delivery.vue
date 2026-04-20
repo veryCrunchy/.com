@@ -3,6 +3,13 @@
   import { computed, onMounted, reactive, ref, watch } from "vue";
 
   import { DEFAULT_CMS_SITE_SETTINGS } from "~/types/directus";
+  import {
+    createStreetDeliveryStoredAuth,
+    parseStreetDeliveryStoredAuth,
+    serializeStreetDeliveryStoredAuth,
+    shouldRefreshStreetDeliveryAuth,
+    STREET_DELIVERY_AUTH_STORAGE_KEY,
+  } from "~/utils/street-delivery-auth";
   import type {
     CmsSiteSettings,
     CmsStreetDeliveryAdminSessionSummary,
@@ -22,7 +29,6 @@
     back: Array<CmsStreetDeliveryAdminSessionSummary | null>;
   };
 
-  const STORAGE_KEY = "street-delivery-directus-token";
   const PRINT_COLUMNS = 2;
   const PRINT_ROWS = 5;
   const CARDS_PER_PAGE = PRINT_COLUMNS * PRINT_ROWS;
@@ -39,7 +45,7 @@
   );
 
   const origin = ref("");
-  const authToken = ref("");
+  const authSession = ref<ReturnType<typeof parseStreetDeliveryStoredAuth>>(null);
   const email = ref("");
   const password = ref("");
   const loginBusy = ref(false);
@@ -164,17 +170,94 @@
   }
 
   async function adminFetch<T>(path: string, options: Parameters<typeof $fetch<T>>[1] = {}) {
-    return await $fetch<T>(path, {
-      ...options,
-      headers: {
-        ...(options.headers || {}),
-        Authorization: `Bearer ${authToken.value}`,
-      },
-    });
+    const makeRequest = async () => {
+      const resolvedToken = await ensureAccessToken();
+
+      return await $fetch<T>(path, {
+        ...options,
+        headers: {
+          ...(options.headers || {}),
+          Authorization: `Bearer ${resolvedToken}`,
+        },
+      });
+    };
+
+    try {
+      return await makeRequest();
+    } catch (error: unknown) {
+      const statusCode =
+        typeof error === "object" && error && "statusCode" in error
+          ? Number((error as { statusCode?: number }).statusCode)
+          : 500;
+
+      if (statusCode !== 401 || !authSession.value?.refreshToken) {
+        throw error;
+      }
+
+      await refreshAuthSession(true);
+      return await makeRequest();
+    }
+  }
+
+  function persistAuthSession() {
+    if (!import.meta.client) {
+      return;
+    }
+
+    if (authSession.value?.accessToken) {
+      localStorage.setItem(STREET_DELIVERY_AUTH_STORAGE_KEY, serializeStreetDeliveryStoredAuth(authSession.value));
+    } else {
+      localStorage.removeItem(STREET_DELIVERY_AUTH_STORAGE_KEY);
+    }
+  }
+
+  async function refreshAuthSession(force = false) {
+    if (!authSession.value?.refreshToken) {
+      return authSession.value;
+    }
+
+    if (!force && !shouldRefreshStreetDeliveryAuth(authSession.value)) {
+      return authSession.value;
+    }
+
+    const response = await $fetch<{
+      accessToken: string;
+      refreshToken: string | null;
+      expires: number | null;
+    }>(
+      "/api/cms/street-delivery/admin/auth/refresh",
+      {
+        method: "POST",
+        body: {
+          refreshToken: authSession.value.refreshToken,
+        },
+      }
+    );
+
+    authSession.value = createStreetDeliveryStoredAuth(response);
+    persistAuthSession();
+
+    return authSession.value;
+  }
+
+  async function ensureAccessToken(forceRefresh = false) {
+    if (!authSession.value?.accessToken) {
+      throw new Error("Directus sign-in required.");
+    }
+
+    if (authSession.value.refreshToken) {
+      await refreshAuthSession(forceRefresh);
+    }
+
+    if (!authSession.value?.accessToken) {
+      throw new Error("Directus sign-in required.");
+    }
+
+    return authSession.value.accessToken;
   }
 
   async function refreshSessions() {
-    if (!authToken.value) {
+    if (!authSession.value?.accessToken) {
       return;
     }
 
@@ -200,8 +283,19 @@
         "statusCode" in error &&
         Number((error as { statusCode?: number }).statusCode) === 401
       ) {
-        authToken.value = "";
-        localStorage.removeItem(STORAGE_KEY);
+        try {
+          await refreshAuthSession(true);
+          const retry = await adminFetch<{ sessions: CmsStreetDeliveryAdminSessionSummary[] }>(
+            "/api/cms/street-delivery/admin/sessions"
+          );
+          sessions.value = retry.sessions;
+          syncDrafts(retry.sessions);
+          loginError.value = "";
+          return;
+        } catch {
+          authSession.value = null;
+          persistAuthSession();
+        }
       }
     } finally {
       loadingSessions.value = false;
@@ -213,7 +307,7 @@
     loginError.value = "";
 
     try {
-      const response = await $fetch<{ accessToken: string }>(
+      const response = await $fetch<{ accessToken: string; refreshToken: string | null; expires: number | null }>(
         "/api/cms/street-delivery/admin/auth/login",
         {
           method: "POST",
@@ -224,8 +318,8 @@
         }
       );
 
-      authToken.value = response.accessToken;
-      localStorage.setItem(STORAGE_KEY, response.accessToken);
+      authSession.value = createStreetDeliveryStoredAuth(response);
+      persistAuthSession();
       password.value = "";
       await refreshSessions();
     } catch (error: unknown) {
@@ -239,10 +333,10 @@
   }
 
   function logout() {
-    authToken.value = "";
+    authSession.value = null;
     sessions.value = [];
     latestBatch.value = [];
-    localStorage.removeItem(STORAGE_KEY);
+    persistAuthSession();
   }
 
   async function createBatch() {
@@ -492,10 +586,10 @@
 
   onMounted(async () => {
     origin.value = window.location.origin;
-    const storedToken = localStorage.getItem(STORAGE_KEY);
+    const storedToken = localStorage.getItem(STREET_DELIVERY_AUTH_STORAGE_KEY);
 
     if (storedToken) {
-      authToken.value = storedToken;
+      authSession.value = parseStreetDeliveryStoredAuth(storedToken);
       await refreshSessions();
     }
   });
@@ -514,7 +608,7 @@
           </p>
         </div>
         <button
-          v-if="authToken"
+          v-if="authSession?.accessToken"
           class="studio-secondary"
           type="button"
           @click="logout"
@@ -523,7 +617,7 @@
         </button>
       </div>
 
-      <section v-if="!authToken" class="studio-login no-print">
+      <section v-if="!authSession?.accessToken" class="studio-login no-print">
         <div class="login-copy">
           <p class="studio-eyebrow">Directus Auth</p>
           <h2>Sign in to your photo handoff studio</h2>

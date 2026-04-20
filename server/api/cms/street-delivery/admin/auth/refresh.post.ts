@@ -1,17 +1,15 @@
 export default defineEventHandler(async (event) => {
   const body = await readBody<{
-    email?: string;
-    password?: string;
+    refreshToken?: string;
   }>(event);
 
-  const email = String(body?.email || "").trim();
-  const password = String(body?.password || "");
+  const refreshToken = String(body?.refreshToken || "").trim();
   const directusUrl = useRuntimeConfig(event).public.directusUrl;
 
-  if (!email || !password) {
+  if (!refreshToken) {
     throw createError({
       statusCode: 400,
-      statusMessage: "Email and password are required.",
+      statusMessage: "Refresh token is required.",
     });
   }
 
@@ -22,14 +20,13 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const response = await fetch(`${directusUrl.replace(/\/$/, "")}/auth/login`, {
+  const response = await fetch(`${directusUrl.replace(/\/$/, "")}/auth/refresh`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      email,
-      password,
+      refresh_token: refreshToken,
       mode: "json",
     }),
   });
@@ -46,13 +43,13 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: response.status === 401 || response.status === 403 ? 401 : 500,
       statusMessage:
-        payload?.errors?.[0]?.message || "Directus login failed.",
+        payload?.errors?.[0]?.message || "Directus token refresh failed.",
     });
   }
 
   return {
     accessToken: payload.data.access_token,
-    refreshToken: payload.data.refresh_token ?? null,
+    refreshToken: payload.data.refresh_token ?? refreshToken,
     expires: payload.data.expires ?? null,
   };
 });

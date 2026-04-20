@@ -37,13 +37,17 @@
       successTitle: "You’re all set.",
       successBody:
         "I’ve received your details. Once I finish sorting the photos, I’ll send you a private link where you can view and download them in full quality.",
+      successReadyBody:
+        "I’ve received your details. Your private gallery is ready now, and you can open it below.",
       successNote: "No spam. Just your photos.",
       viewGallery: "Open gallery",
-      readyLabel: "Your gallery is already ready.",
-      readyAction: "Open private gallery",
       formTitle: "A few details",
       formIntro:
         "Everything below is just to help me identify your photos properly. The public sharing preference is optional and does not affect delivery.",
+      matchedFormTitle: "Just the essentials",
+      matchedFormIntro:
+        "Your photos have already been matched, so I only need a contact detail and your sharing preference.",
+      unlockedAfterForm: "Fill in the form to unlock your private gallery link.",
       methodLabel: "How should I contact you?",
       valueEmail: "Email address",
       valueInstagram: "Instagram",
@@ -85,13 +89,17 @@
       successTitle: "Alles staat goed.",
       successBody:
         "Ik heb je gegevens ontvangen. Zodra ik de foto’s heb uitgezocht, stuur ik je een privélink waarmee je alles in volledige kwaliteit kunt bekijken en downloaden.",
+      successReadyBody:
+        "Ik heb je gegevens ontvangen. Je privégalerij staat nu klaar en je kunt die hieronder openen.",
       successNote: "Geen spam. Alleen je foto’s.",
       viewGallery: "Galerij openen",
-      readyLabel: "Je galerij staat al klaar.",
-      readyAction: "Open privégalerij",
       formTitle: "Een paar details",
       formIntro:
         "Alles hieronder helpt me alleen om jouw foto’s goed te herkennen. Je voorkeur voor openbare publicatie is optioneel en heeft geen invloed op de levering.",
+      matchedFormTitle: "Alleen het nodige",
+      matchedFormIntro:
+        "Je foto’s zijn al gekoppeld, dus ik heb alleen nog een contactgegeven en je voorkeur voor openbare publicatie nodig.",
+      unlockedAfterForm: "Vul eerst het formulier in om je privégalerij te openen.",
       methodLabel: "Hoe wil je dat ik contact opneem?",
       valueEmail: "E-mailadres",
       valueInstagram: "Instagram",
@@ -149,6 +157,10 @@
 
   const session = computed(() => sessionResponse.value?.session || null);
   const notFound = computed(() => !pending.value && !session.value);
+  const isMatchedFlow = computed(() => {
+    const status = String(session.value?.status || "").toLowerCase();
+    return status === "matched" || status === "delivered";
+  });
 
   const contactMethod = ref<CmsStreetDeliveryContactMethod>("email");
   const contactValue = ref("");
@@ -253,11 +265,11 @@
       form.set("contactMethod", contactMethod.value);
       form.set("contactValue", contactValue.value);
       form.set("firstName", firstName.value);
-      form.set("description", description.value);
+      form.set("description", isMatchedFlow.value ? "" : description.value);
       form.set("consentSend", "true");
       form.set("consentPublish", consentPublish.value ? "true" : "false");
 
-      if (selfieFile.value) {
+      if (!isMatchedFlow.value && selfieFile.value) {
         form.set("selfie", selfieFile.value);
       }
 
@@ -339,7 +351,7 @@
         <template v-else-if="submitSuccess">
           <div class="street-state">
             <h2>{{ activeCopy.successTitle }}</h2>
-            <p>{{ activeCopy.successBody }}</p>
+            <p>{{ submitSuccess.galleryUrl ? activeCopy.successReadyBody : activeCopy.successBody }}</p>
             <p class="street-note">{{ activeCopy.successNote }}</p>
             <NuxtLink
               v-if="submitSuccess.galleryUrl"
@@ -353,14 +365,13 @@
 
         <template v-else>
           <div v-if="session?.galleryReady && session.galleryToken" class="street-ready">
-            <p>{{ activeCopy.readyLabel }}</p>
-            <NuxtLink :to="`/g/${session.galleryToken}`">{{ activeCopy.readyAction }}</NuxtLink>
+            <p>{{ activeCopy.unlockedAfterForm }}</p>
           </div>
 
           <form class="street-form" @submit.prevent="submitRequest">
             <div class="street-form-head">
-              <h2>{{ activeCopy.formTitle }}</h2>
-              <p>{{ activeCopy.formIntro }}</p>
+              <h2>{{ isMatchedFlow ? activeCopy.matchedFormTitle : activeCopy.formTitle }}</h2>
+              <p>{{ isMatchedFlow ? activeCopy.matchedFormIntro : activeCopy.formIntro }}</p>
             </div>
 
             <label class="street-field">
@@ -395,25 +406,27 @@
               >
             </label>
 
-            <label class="street-field">
-              <span>{{ activeCopy.descriptionLabel }} <small>({{ activeCopy.nameOptional }})</small></span>
-              <textarea
-                v-model="description"
-                rows="3"
-                :placeholder="activeCopy.descriptionPlaceholder"
-              />
-            </label>
+            <template v-if="!isMatchedFlow">
+              <label class="street-field">
+                <span>{{ activeCopy.descriptionLabel }} <small>({{ activeCopy.nameOptional }})</small></span>
+                <textarea
+                  v-model="description"
+                  rows="3"
+                  :placeholder="activeCopy.descriptionPlaceholder"
+                />
+              </label>
 
-            <label class="street-field">
-              <span>{{ activeCopy.selfieLabel }} <small>({{ activeCopy.selfieHint }})</small></span>
-              <input
-                type="file"
-                accept="image/*"
-                @change="onSelfieSelected"
-              >
-              <small class="street-file-help">{{ activeCopy.selfieHelp }}</small>
-              <small v-if="selfieFile" class="street-file">{{ selfieFile.name }}</small>
-            </label>
+              <label class="street-field">
+                <span>{{ activeCopy.selfieLabel }} <small>({{ activeCopy.selfieHint }})</small></span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  @change="onSelfieSelected"
+                >
+                <small class="street-file-help">{{ activeCopy.selfieHelp }}</small>
+                <small v-if="selfieFile" class="street-file">{{ selfieFile.name }}</small>
+              </label>
+            </template>
 
             <label class="street-check">
               <input v-model="consentPublish" type="checkbox">
@@ -427,8 +440,6 @@
             <button class="street-primary" :disabled="submitting" type="submit">
               {{ submitting ? activeCopy.submitting : activeCopy.submit }}
             </button>
-
-            <p class="street-note">{{ activeCopy.footerNote }}</p>
           </form>
         </template>
       </div>

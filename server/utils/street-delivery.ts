@@ -1159,6 +1159,20 @@ export async function readStreetDeliveryGalleryByToken(
     return null;
   }
 
+  const [contact] = (await client.request(
+    readItems("street_delivery_contacts", {
+      fields: ["id"] as never,
+      filter: {
+        street_delivery_sessions_id: { _eq: session.id },
+      },
+      limit: 1,
+    })
+  )) as Array<{ id: number }>;
+
+  if (!contact) {
+    return null;
+  }
+
   const links = (await client.request(
     readItems("street_delivery_session_photos", {
       fields: STREET_GALLERY_LINK_FIELDS as never,
